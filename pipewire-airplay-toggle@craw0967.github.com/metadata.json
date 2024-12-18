@@ -1,6 +1,6 @@
 {
   "name": "pipewire-airplay-toggle",
-  "description": "Quick setting menu toggle to enable/disable the PipeWire RAOP Discover Module (Airplay)",
+  "description": "Quick setting menu toggle to enable/disable the PipeWire RAOP Discover Module (Airplay). Requires PipeWire and pipewire-zeroconf packages.",
   "uuid": "pipewire-airplay-toggle@craw0967.github.com",
   "shell-version": [
     "45",
