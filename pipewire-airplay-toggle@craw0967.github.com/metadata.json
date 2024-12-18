@@ -1,0 +1,10 @@
+{
+  "name": "airplay-quick-setting",
+  "description": "Quick setting menu to enable/disable the PipeWire RAOP Discover Module (Airplay)",
+  "uuid": "airplay-quick-setting@craw0967.github.com",
+  "shell-version": [
+    "45",
+    "46",
+    "47"
+  ]
+}
