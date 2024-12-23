@@ -19,6 +19,16 @@ import GObject from "gi://GObject";
 import GLib from "gi://GLib";
 import Gio from "gi://Gio";
 
+/* Gio.Subprocess */
+Gio._promisify(Gio.Subprocess.prototype, "communicate_utf8_async");
+
+/* Ancillary Methods */
+Gio._promisify(
+    Gio.DataInputStream.prototype,
+    "read_line_async",
+    "read_line_finish_utf8"
+);
+
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 import {
@@ -30,12 +40,12 @@ import {
     SystemIndicator,
 } from "resource:///org/gnome/shell/ui/quickSettings.js";
 
-const ENVIRON = GLib.environ_setenv(GLib.get_environ(), "LANG", "C", true);
 const INDICATOR_ICON = "audio-x-generic-symbolic"; //'waves-and-screen-symbolic';
 const INDICATOR_TEXT = "Airplay Speakers";
 
 const AirplayToggle = GObject.registerClass(
     class AirplayToggle extends QuickToggle {
+        _pipewireInstalled;
         _raopModuleId;
         _monitorProcess;
 
@@ -46,128 +56,166 @@ const AirplayToggle = GObject.registerClass(
                 toggleMode: false,
             });
 
-            const pipewireInstalled = this._confirmPipewireInstalled();
+            this._confirmPipeWireInstalledAndInitialize();
 
-            if (pipewireInstalled) {
-                this.checked = this._isModuleLoaded();
+            this.connect("clicked", () => {
+                if(this._pipewireInstalled && this._raopModuleId) {
+                    this._toggleAirplay();
+                } else {
+                    Main.notify(
+                        _("PipeWire or pipewire-zeroconf package not found"),
+                        _("PipeWire and pipewire-zeroconf are required by this extension.") +
+                            _("Please review the implications of installing these packages and install them to use this extension.") +
+                            _("If you do not want to install these packages, you can uninstall this extension.")
+                    );
+                }
+            });
+        }
 
-                // We need the module ID to monitor events related to the module
-                // If the module wasn't loaded when the extension was initialized, we won't have the module ID
-                // Toggle the module on and off to get the module ID. Do this before we start monitoring events
-                if (!this._raopModuleId) {
+        async execCommandAndReadOutput(argv, input = null, cancellable = null) {
+            let cancelId = 0;
+            let flags =
+                Gio.SubprocessFlags.STDOUT_PIPE |
+                Gio.SubprocessFlags.STDERR_PIPE;
+
+            if (input !== null) flags |= Gio.SubprocessFlags.STDIN_PIPE;
+
+            const proc = new Gio.Subprocess({ argv, flags });
+            proc.init(cancellable);
+
+            if (cancellable instanceof Gio.Cancellable)
+                cancelId = cancellable.connect(() => proc.force_exit());
+
+            try {
+                const [stdout, stderr] = await proc.communicate_utf8_async(
+                    input,
+                    null
+                );
+                const status = proc.get_exit_status();
+
+                if (status !== 0) {
+                    throw new Gio.IOErrorEnum({
+                        code: Gio.IOErrorEnum.FAILED,
+                        message: stderr
+                            ? stderr.trim()
+                            : `Command '${argv}' failed with exit code ${status}`
+                    });
+                }
+
+                const out = stdout ? stdout.trim() : stdout;
+
+                const output =
+                    out && out instanceof Uint8Array
+                        ? new TextDecoder().decode(out).split("\n")
+                        : out.toString().split("\n");
+
+                return output;
+            } catch (e) {
+                console.error(e);
+            } finally {
+                if (cancelId > 0) cancellable.disconnect(cancelId);
+            }
+        }
+
+        async _confirmPipeWireInstalledAndInitialize() {
+            try {
+                let pipewireInstalled = false;
+
+                const commandArray = ["pactl", "info"];
+                const output = await this.execCommandAndReadOutput(
+                    commandArray,
+                    null,
+                    null
+                );
+
+                if (output && output.length > 0) {
+                    const filtered = output.filter((line) =>
+                        line.includes("PipeWire")
+                    );
+                    pipewireInstalled = filtered.length > 0;
+                }
+
+                if (pipewireInstalled) {
+                    this._pipewireInstalled = true;
+                    this._getRaopModuleId();
+                }
+            } catch (err) {
+                console.error("Error reading output: " + err);
+            }
+        }
+
+        async _getRaopModuleId() {
+            try {
+                let moduleLoaded = false;
+
+                const commandArray = ["pactl", "list", "modules", "short"];
+                const output = await this.execCommandAndReadOutput(
+                    commandArray,
+                    null,
+                    null
+                );
+
+                if (output && output.length > 0) {
+                    const filtered = output.filter((line) =>
+                        line.includes("module-raop-discover")
+                    );
+
+                    this._raopModuleId =
+                        filtered && filtered.length > 0
+                            ? filtered[0].split("\t")[0]
+                            : null;
+                    moduleLoaded = filtered.length > 0;
+                }
+
+                if (moduleLoaded) {
+                    this.checked = true;
+                } else {
+                    // We need the module ID to monitor events related to the module
+                    // If the module wasn't loaded when the extension was initialized, we won't have the module ID
+                    // Toggle the module on and off to get the module ID. Do this before we start monitoring events
+
                     // Ensure the 'checked' property is set to false so that _toggleAirplay() will load the module
                     this.checked = false;
-                    this._toggleAirplay();
+                    await this._toggleAirplay();
 
                     // Set the 'checked' property to true so that _toggleAirplay() will unload the module
                     this.checked = true;
-                    this._toggleAirplay();
+                    await this._toggleAirplay();
 
                     // Set the 'checked' property back to false
                     this.checked = false;
                 }
 
                 this._monitorModuleEvents();
-
-                this.connect("clicked", () => {
-                    this._toggleAirplay();
-                });
+            } catch (err) {
+                console.error("Error reading output: " + err);
             }
         }
 
-        runCommandAndConfirmOutput(commandArray) {
-            let [result, out, err, exit_code] = GLib.spawn_sync(
-                null,
-                commandArray,
-                ENVIRON,
-                GLib.SpawnFlags.SEARCH_PATH,
-                null
-            );
-
-            if ((!err || err.length === 0) && out) {
-                let lines =
-                    out instanceof Uint8Array
-                        ? new TextDecoder().decode(out).split("\n")
-                        : out.toString().split("\n");
-
-                return lines;
-            }
-
-            if (err && err.length > 0) {
-                console.error(
-                    "Error running command '" +
-                        commandArray.join(" ") +
-                        "': " +
-                        err
-                );
-                return false;
-            }
-
-            return null;
-        }
-
-        _confirmPipewireInstalled() {
-            let pipewireInstalled = false;
-            let output = this.runCommandAndConfirmOutput(["pactl", "info"]);
-
-            if (output && output.length > 0) {
-                output = output.filter((output) => output.includes("PipeWire"));
-
-                pipewireInstalled = output.length > 0;
-            }
-
-            // If output is false, the command failed and an error message was previously presented to user.
-            // Only show error message if PipeWire is not installed and command did not fail.
-            if (!pipewireInstalled && output !== false) {
-                Main.notify(
-                    "Error",
-                    "PipeWire is not installed. The pipewire-airplay-toggle extension will not work."
-                );
-            }
-
-            return pipewireInstalled;
-        }
-
-        _isModuleLoaded() {
-            let moduleLoaded = false;
-            let output = this.runCommandAndConfirmOutput([
-                "pactl",
-                "list",
-                "modules",
-                "short",
-            ]);
-
-            if (output && output.length > 0) {
-                output = output.filter((output) =>
-                    output.includes("module-raop-discover")
+        async _toggleAirplay() {
+            try {
+                const commandArray = [
+                    "pactl",
+                    this.checked ? "unload-module" : "load-module",
+                    "module-raop-discover",
+                ];
+                const output = await this.execCommandAndReadOutput(
+                    commandArray,
+                    null,
+                    null
                 );
 
-                this._raopModuleId =
-                    output && output.length > 0
-                        ? output[0].split("\t")[0]
-                        : null;
-                moduleLoaded = output.length > 0;
-            }
-
-            return moduleLoaded;
-        }
-
-        _toggleAirplay() {
-            const commandArray = [
-                "pactl",
-                this.checked ? "unload-module" : "load-module",
-                "module-raop-discover",
-            ];
-            const output = this.runCommandAndConfirmOutput(commandArray);
-
-            if (output && output.length > 0) {
-                this._raopModuleId =
-                    !this._raopModuleId &&
-                    output &&
-                    output.length > 0 &&
-                    output[0].length > 0
-                        ? output[0]
-                        : this._raopModuleId;
+                if (output && output.length > 0) {
+                    this._raopModuleId =
+                        !this._raopModuleId &&
+                        output &&
+                        output.length > 0 &&
+                        output[0].length > 0
+                            ? output[0]
+                            : this._raopModuleId;
+                }
+            } catch (err) {
+                console.error("Error reading output: " + err);
             }
         }
 
@@ -241,7 +289,7 @@ const AirplayIndicator = GObject.registerClass(
     }
 );
 
-export default class QuickSettingsExampleExtension extends Extension {
+export default class PipeWireAirplayToggleExtension extends Extension {
     enable() {
         this._indicator = new AirplayIndicator();
         Main.panel.statusArea.quickSettings.addExternalIndicator(
