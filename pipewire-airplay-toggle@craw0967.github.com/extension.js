@@ -35,6 +35,7 @@ import {
     Extension,
     gettext as _,
 } from "resource:///org/gnome/shell/extensions/extension.js";
+
 import {
     QuickToggle,
     SystemIndicator,
@@ -42,6 +43,16 @@ import {
 
 const INDICATOR_ICON = "audio-x-generic-symbolic"; //'waves-and-screen-symbolic';
 const INDICATOR_TEXT = "Airplay Speakers";
+
+const logErr = function logErr(err) {
+    // Logging can be disabled or enabled here.
+    // Future versions may allow this to be udpated in extension settings.
+    const debugLogsEnabled = true;
+
+    if (debugLogsEnabled) {
+        console.error(err);
+    }
+};
 
 const AirplayToggle = GObject.registerClass(
     class AirplayToggle extends QuickToggle {
@@ -56,17 +67,19 @@ const AirplayToggle = GObject.registerClass(
                 toggleMode: false,
             });
 
-            this._confirmPipeWireInstalledAndInitialize();
+            this._setIntialState();
 
             this.connect("clicked", () => {
-                if(this._pipewireInstalled && this._raopModuleId) {
+                if (this._pipewireInstalled && this._raopModuleId) {
                     this._toggleAirplay();
                 } else {
                     Main.notify(
                         _("PipeWire or pipewire-zeroconf package not found"),
-                        _("PipeWire and pipewire-zeroconf are required by this extension.") +
-                            _("Please review the implications of installing these packages and install them to use this extension.") +
-                            _("If you do not want to install these packages, you can uninstall this extension.")
+                        _(
+                            "PipeWire and pipewire-zeroconf are required by this extension. " +
+                                "Please review the implications of installing these packages and install them to use this extension. " +
+                                "If you do not want to install these packages, you can uninstall this extension."
+                        )
                     );
                 }
             });
@@ -98,7 +111,7 @@ const AirplayToggle = GObject.registerClass(
                         code: Gio.IOErrorEnum.FAILED,
                         message: stderr
                             ? stderr.trim()
-                            : `Command '${argv}' failed with exit code ${status}`
+                            : `Command '${argv}' failed with exit code ${status}`,
                     });
                 }
 
@@ -110,62 +123,18 @@ const AirplayToggle = GObject.registerClass(
                         : out.toString().split("\n");
 
                 return output;
-            } catch (e) {
-                console.error(e);
+            } catch (err) {
+                logErr(err);
             } finally {
                 if (cancelId > 0) cancellable.disconnect(cancelId);
             }
         }
 
-        async _confirmPipeWireInstalledAndInitialize() {
-            try {
-                let pipewireInstalled = false;
+        async _setIntialState() {
+            this._pipewireInstalled = await this._confirmPipeWireInstalled();
 
-                const commandArray = ["pactl", "info"];
-                const output = await this.execCommandAndReadOutput(
-                    commandArray,
-                    null,
-                    null
-                );
-
-                if (output && output.length > 0) {
-                    const filtered = output.filter((line) =>
-                        line.includes("PipeWire")
-                    );
-                    pipewireInstalled = filtered.length > 0;
-                }
-
-                if (pipewireInstalled) {
-                    this._pipewireInstalled = true;
-                    this._getRaopModuleId();
-                }
-            } catch (err) {
-                console.error("Error reading output: " + err);
-            }
-        }
-
-        async _getRaopModuleId() {
-            try {
-                let moduleLoaded = false;
-
-                const commandArray = ["pactl", "list", "modules", "short"];
-                const output = await this.execCommandAndReadOutput(
-                    commandArray,
-                    null,
-                    null
-                );
-
-                if (output && output.length > 0) {
-                    const filtered = output.filter((line) =>
-                        line.includes("module-raop-discover")
-                    );
-
-                    this._raopModuleId =
-                        filtered && filtered.length > 0
-                            ? filtered[0].split("\t")[0]
-                            : null;
-                    moduleLoaded = filtered.length > 0;
-                }
+            if (this._pipewireInstalled) {
+                let moduleLoaded = await this._getRaopModuleId();
 
                 if (moduleLoaded) {
                     this.checked = true;
@@ -187,8 +156,59 @@ const AirplayToggle = GObject.registerClass(
                 }
 
                 this._monitorModuleEvents();
+            }
+        }
+        async _confirmPipeWireInstalled() {
+            try {
+                let pipewireInstalled = false;
+
+                const commandArray = ["pactl", "info"];
+                const output = await this.execCommandAndReadOutput(
+                    commandArray,
+                    null,
+                    null
+                );
+
+                if (output && output.length > 0) {
+                    const filtered = output.filter((line) =>
+                        line.includes("PipeWire")
+                    );
+                    pipewireInstalled = filtered.length > 0;
+                }
+
+                return pipewireInstalled;
             } catch (err) {
-                console.error("Error reading output: " + err);
+                logErr(err);
+            }
+        }
+
+        async _getRaopModuleId() {
+            try {
+                let moduleLoaded = false;
+
+                const commandArray = ["pactl", "list", "modules", "short"];
+                const output = await this.execCommandAndReadOutput(
+                    commandArray,
+                    null,
+                    null
+                );
+
+                if (output && output.length > 0) {
+                    const filtered = output.filter((line) =>
+                        line.includes("module-raop-discover")
+                    );
+
+                    if (filtered && filtered.length > 0) {
+                        this._raopModuleId = filtered[0]
+                            ? filtered[0].split("\t")[0]
+                            : null;
+                        moduleLoaded = true;
+                    }
+                }
+
+                return moduleLoaded;
+            } catch (err) {
+                logErr(err);
             }
         }
 
@@ -215,7 +235,7 @@ const AirplayToggle = GObject.registerClass(
                             : this._raopModuleId;
                 }
             } catch (err) {
-                console.error("Error reading output: " + err);
+                logErr(err);
             }
         }
 
@@ -261,7 +281,7 @@ const AirplayToggle = GObject.registerClass(
                             this._readOutput(stdout);
                         }
                     } catch (err) {
-                        console.error("Error reading output: " + err);
+                        logErr(err);
                     }
                 }
             );
