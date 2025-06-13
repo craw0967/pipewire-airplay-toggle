@@ -1,6 +1,6 @@
 {
-  "name": "pipewire-airplay-toggle",
-  "description": "Quick setting menu toggle to enable/disable the PipeWire RAOP Discover Module (Airplay). Requires PipeWire and pipewire-zeroconf packages.",
+  "name": "PipeWire AirPlay Toggle",
+  "description": "Quick setting menu toggle to enable/disable the PipeWire RAOP Discover Module (AirPlay). Requires PipeWire and pipewire-zeroconf packages.",
   "uuid": "pipewire-airplay-toggle@craw0967.github.com",
   "shell-version": [
     "45",
@@ -8,5 +8,6 @@
     "47",
     "48"
   ],
-  "url": "https://github.com/craw0967/pipewire-airplay-toggle"
+  "url": "https://github.com/craw0967/pipewire-airplay-toggle",
+  "settings-schema": "org.gnome.shell.extensions.pipewire-airplay-toggle"
 }
