@@ -1,12 +1,14 @@
 # pipewire-airplay-toggle
 
-Simple Gnome-Shell extension to load and unload the 'module-raop-discover' Pipewire module to toggle AirPlay speaker connectivity.
+Simple Gnome-Shell extension to load and unload the 'module-raop-discover' Pipewire module to toggle AirPlay® speaker connectivity.
 
-You must be on Gnome 45 or later for this extension. Pipewire and pipewire-zeroconf must be installed. This extension does not currently support Pulseaudio.
+You must be on Gnome 45 or later for this extension. PipeWire and the libpipewire-module-raop-discover module (installed via the 'pipewire-zeroconf' package on many distributions) must be installed. This extension does not support PulseAudio.
 
 <p align="center">
-  <img src="screenshot.png" title="'AirPlay Speakers' Quick Settings Toggle" alt="'AirPlay Speakers' Quick Settings Toggle"/>
+  <img src="screenshot.png" title="'AirPlay® Speakers' Quick Settings Toggle" alt="'AirPlay® Speakers' Quick Settings Toggle"/>
 </p>
+
+AirPlay® is a trademark of Apple Inc., registered in the U.S. and other countries and regions.
 
 ## To Install ##
 Recommended:
