@@ -45,7 +45,7 @@ export const PREFS_GROUPS = [
                 settingsKey: "show-indicator",
                 row: {
                     title: "Show Indicator",
-                    subtitle: "Show a panel indicator when AirPlay is enabled"
+                    subtitle: "Show a panel indicator when the RAOP Discover (AirPlay) module is enabled"
                 }
             }
         ]
