@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <enum id="org.gnome.shell.extensions.pipewire-airplay-toggle.combo-options">
+    <value nick="option0" value="0"/>
+    <value nick="option1" value="1"/>
+    <value nick="option2" value="2"/>
+    <value nick="option3" value="3"/>
+    <value nick="option4" value="4"/>
+  </enum>
+
+  <schema id="org.gnome.shell.extensions.pipewire-airplay-toggle" path="/org/gnome/shell/extensions/pipewire-airplay-toggle/">
+    <key name="indicator-icon" enum="org.gnome.shell.extensions.pipewire-airplay-toggle.combo-options">
+      <default>'option0'</default>
+    </key>
+    <key name="show-indicator" type="b">
+      <default>true</default>
+    </key>
+    <key name="show-debug" type="b">
+      <default>false</default>
+    </key>
+  </schema>
+</schemalist>

@@ -30,55 +30,45 @@ Gio._promisify(
 );
 
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
+import * as QuickSettings from "resource:///org/gnome/shell/ui/quickSettings.js";
 
 import {
     Extension,
     gettext as _,
 } from "resource:///org/gnome/shell/extensions/extension.js";
 
+import { logErr } from "./functions/logging.js";
 import {
-    QuickToggle,
-    SystemIndicator,
-} from "resource:///org/gnome/shell/ui/quickSettings.js";
+    INDICATOR_TEXT,
+    INDICATOR_ICON_MAP
+} from "./constants/config.js";
 
-const INDICATOR_ICON = "audio-x-generic-symbolic"; //'waves-and-screen-symbolic';
-const INDICATOR_TEXT = "Airplay Speakers";
-
-const logErr = function logErr(err) {
-    // Logging can be disabled or enabled here.
-    // Future versions may allow this to be udpated in extension settings.
-    const debugLogsEnabled = true;
-
-    if (debugLogsEnabled) {
-        console.error(err);
-    }
-};
-
-const AirplayToggle = GObject.registerClass(
-    class AirplayToggle extends QuickToggle {
+const AirPlayToggle = GObject.registerClass(
+    class AirPlayToggle extends QuickSettings.QuickToggle {
         _pipewireInstalled;
         _raopModuleId;
         _monitorProcess;
 
-        constructor() {
-            super({
+        _init(extensionObject) {
+            this._settings = extensionObject.getSettings();
+
+            super._init({
                 title: _(INDICATOR_TEXT),
-                iconName: INDICATOR_ICON,
                 toggleMode: false,
             });
 
-            this._setIntialState();
+            this._setInitialState();
 
             this.connect("clicked", () => {
                 if (this._pipewireInstalled && this._raopModuleId) {
-                    this._toggleAirplay();
+                    this._toggleAirPlay();
                 } else {
                     Main.notify(
                         _("PipeWire or pipewire-zeroconf package not found"),
                         _(
                             "PipeWire and pipewire-zeroconf are required by this extension. " +
                                 "Please review the implications of installing these packages and install them to use this extension. " +
-                                "If you do not want to install these packages, you can uninstall this extension."
+                                "If you do not want to install these packages, you may wish to uninstall this extension."
                         )
                     );
                 }
@@ -124,13 +114,13 @@ const AirplayToggle = GObject.registerClass(
 
                 return output;
             } catch (err) {
-                logErr(err);
+                logErr(err, this._settings?.get_boolean("show-debug"));
             } finally {
                 if (cancelId > 0) cancellable.disconnect(cancelId);
             }
         }
 
-        async _setIntialState() {
+        async _setInitialState() {
             this._pipewireInstalled = await this._confirmPipeWireInstalled();
 
             if (this._pipewireInstalled) {
@@ -143,13 +133,13 @@ const AirplayToggle = GObject.registerClass(
                     // If the module wasn't loaded when the extension was initialized, we won't have the module ID
                     // Toggle the module on and off to get the module ID. Do this before we start monitoring events
 
-                    // Ensure the 'checked' property is set to false so that _toggleAirplay() will load the module
+                    // Ensure the 'checked' property is set to false so that _toggleAirPlay() will load the module
                     this.checked = false;
-                    await this._toggleAirplay();
+                    await this._toggleAirPlay();
 
-                    // Set the 'checked' property to true so that _toggleAirplay() will unload the module
+                    // Set the 'checked' property to true so that _toggleAirPlay() will unload the module
                     this.checked = true;
-                    await this._toggleAirplay();
+                    await this._toggleAirPlay();
 
                     // Set the 'checked' property back to false
                     this.checked = false;
@@ -178,7 +168,7 @@ const AirplayToggle = GObject.registerClass(
 
                 return pipewireInstalled;
             } catch (err) {
-                logErr(err);
+                logErr(err, this._settings?.get_boolean("show-debug"));
             }
         }
 
@@ -208,11 +198,11 @@ const AirplayToggle = GObject.registerClass(
 
                 return moduleLoaded;
             } catch (err) {
-                logErr(err);
+                logErr(err, this._settings?.get_boolean("show-debug"));
             }
         }
 
-        async _toggleAirplay() {
+        async _toggleAirPlay() {
             try {
                 const commandArray = [
                     "pactl",
@@ -235,7 +225,7 @@ const AirplayToggle = GObject.registerClass(
                             : this._raopModuleId;
                 }
             } catch (err) {
-                logErr(err);
+                logErr(err, this._settings?.get_boolean("show-debug"));
             }
         }
 
@@ -281,7 +271,7 @@ const AirplayToggle = GObject.registerClass(
                             this._readOutput(stdout);
                         }
                     } catch (err) {
-                        logErr(err);
+                        logErr(err, this._settings?.get_boolean("show-debug"));
                     }
                 }
             );
@@ -289,29 +279,78 @@ const AirplayToggle = GObject.registerClass(
     }
 );
 
-const AirplayIndicator = GObject.registerClass(
-    class AirplayIndicator extends SystemIndicator {
-        constructor() {
-            super();
+const AirPlayIndicator = GObject.registerClass(
+    class AirPlayIndicator extends QuickSettings.SystemIndicator {
+        _init(extensionObject) {
+            super._init();
 
             this._indicator = this._addIndicator();
-            this._indicator.iconName = INDICATOR_ICON;
+            this._toggle = new AirPlayToggle(extensionObject);
 
-            const toggle = new AirplayToggle();
-            toggle.bind_property(
-                "checked",
-                this._indicator,
-                "visible",
-                GObject.BindingFlags.SYNC_CREATE
+            this._extensionObject = extensionObject;
+            this._settings = this._extensionObject.getSettings();
+            
+            this._setIndicatorIcon();
+            this._setIndicatorIconVisibility()
+            this._connectSettings();
+
+            this.quickSettingsItems.push(this._toggle);
+        }
+
+        _getIcon(iconName) {
+            const iconFile = Gio.File.new_for_path(this._extensionObject.dir.get_child("icons").get_path() + "/" +iconName);
+            const icon = Gio.FileIcon.new(iconFile);
+            
+            return icon;
+        };
+
+        _setIndicatorIcon() {
+            this._iconName = this._settings?.get_string("indicator-icon")?.length > 0 ? INDICATOR_ICON_MAP[this._settings.get_string("indicator-icon")] : INDICATOR_ICON_MAP["option0"];
+            this._indicator.gicon = this._getIcon(this._iconName);
+            this._toggle.gicon = this._getIcon(this._iconName);
+        }
+
+        _setIndicatorIconVisibility() {
+            const showIndicator = this._settings.get_boolean("show-indicator");
+            if (showIndicator === true) {
+                if (!this._binding) {
+                    this._binding = this._toggle.bind_property(
+                        "checked",
+                        this._indicator,
+                        "visible",
+                        GObject.BindingFlags.SYNC_CREATE
+                    );
+                }
+            } else {
+                if (this._binding) {
+                    this._binding.unbind();
+                    this._binding = null;
+                }
+                this._indicator.visible = false;
+            }
+        }
+
+        _connectSettings() {
+            this._settings.connect(
+                "changed::indicator-icon",
+                () => {
+                    this._setIndicatorIcon();
+                }
             );
-            this.quickSettingsItems.push(toggle);
+
+            this._settings.connect(
+                "changed::show-indicator",
+                () => {
+                    this._setIndicatorIconVisibility();
+                }
+            );
         }
     }
 );
 
-export default class PipeWireAirplayToggleExtension extends Extension {
+export default class PipeWireAirPlayToggleExtension extends Extension {
     enable() {
-        this._indicator = new AirplayIndicator();
+        this._indicator = new AirPlayIndicator(this);
         Main.panel.statusArea.quickSettings.addExternalIndicator(
             this._indicator
         );
@@ -328,7 +367,8 @@ export default class PipeWireAirplayToggleExtension extends Extension {
 
             item.destroy();
         });
-        this._indicator.destroy();
+        this._indicator?.destroy();
         delete this._indicator;
+        this._settings = null;
     }
 }
