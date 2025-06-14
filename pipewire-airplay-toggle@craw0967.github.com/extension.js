@@ -23,6 +23,12 @@ import { AirPlayIndicator } from "./indicator.js";
 import { AirPlayToggle } from "./toggle.js";
 
 export default class PipeWireAirPlayToggleExtension extends Extension {
+    constructor(metadata) {
+        super(metadata);
+
+        this.initTranslations("pipewire-airplay-toggle@craw0967.github.com");
+    }
+
     enable() {
         this.settings = this.getSettings();
 

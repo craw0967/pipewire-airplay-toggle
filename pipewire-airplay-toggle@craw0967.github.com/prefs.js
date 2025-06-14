@@ -24,7 +24,13 @@ const ComboOptions = GObject.registerClass({
     }
 });
 
-export default class ExamplePreferences extends ExtensionPreferences {
+export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferences {
+    constructor(metadata) {
+        super(metadata);
+
+        this.initTranslations("pipewire-airplay-toggle@craw0967.github.com");
+    }
+
     fillPreferencesWindow(window) {
         const groupsConfig = PREFS_GROUPS;
         window._settings = this.getSettings();
@@ -81,7 +87,7 @@ export default class ExamplePreferences extends ExtensionPreferences {
             item_type: ComboOptions
         })
         for(const option of modelOptions) {
-            model.append(new ComboOptions(option.label, option.value));
+            model.append(new ComboOptions(_(option.label), option.value));
         }
 
         return model;
