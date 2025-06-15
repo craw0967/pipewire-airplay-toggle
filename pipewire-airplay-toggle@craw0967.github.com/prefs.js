@@ -24,7 +24,7 @@ const ComboOptions = GObject.registerClass({
     }
 });
 
-export default class ExamplePreferences extends ExtensionPreferences {
+export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const groupsConfig = PREFS_GROUPS;
         window._settings = this.getSettings();
