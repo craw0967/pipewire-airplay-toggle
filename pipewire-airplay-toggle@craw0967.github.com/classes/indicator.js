@@ -6,8 +6,14 @@ import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.j
 
 import { INDICATOR_ICON_MAP } from "../constants/config.js";
 
+/** Class representing a QuickSettings System Indicator */
 export const AirPlayIndicator = GObject.registerClass(
     class AirPlayIndicator extends QuickSettings.SystemIndicator {
+        /**
+         * Initialize the AirPlayIndicator class.
+         * 
+         * @param {Extension} extensionObject - An instance of the default extension class.
+         */
         _init(extensionObject) {
             super._init();
 
@@ -18,6 +24,14 @@ export const AirPlayIndicator = GObject.registerClass(
             this.setIndicatorIconVisibility();
         }
 
+        /***
+         * Get the currently selected icon for the indicator and toggle switch.
+         * 
+         * Looks up the currently selected icon name in the extension's settings and
+         * returns a Gio.FileIcon object based on that icon name.
+         * 
+         * @returns {Gio.FileIcon} - The icon that should be used for the indicator and toggle switch.
+         */
         _getIcon() {
             const iconName = this._extensionObject.settings?.get_string("indicator-icon")?.length > 0 ? INDICATOR_ICON_MAP[this._extensionObject.settings.get_string("indicator-icon")] : INDICATOR_ICON_MAP["option0"];
             const iconFile = Gio.File.new_for_path(this._extensionObject.dir.get_child("icons").get_path() + "/" +iconName);
@@ -26,11 +40,26 @@ export const AirPlayIndicator = GObject.registerClass(
             return icon;
         };
 
+        /**
+         * Updates the icon of the indicator and the toggle switch.
+         * 
+         * Fetches the currently selected icon name from the extension's settings and
+         * sets both the indicator and the toggle switch to use that icon.
+         */
         setIndicatorIcon() {
             this._indicator.gicon = this._getIcon();
             this._extensionObject.toggle.gicon = this._getIcon();
         }
 
+        /**
+         * Sets the visibility of the indicator icon based on extension settings.
+         * 
+         * If the "show-indicator" setting is true, bind the visibility of the
+         * indicator to the "checked" property of the toggle. 
+         * 
+         * If the "show-indicator" setting is false, unbind any existing binding
+         * and hide the indicator.
+         */
         setIndicatorIconVisibility() {
             const showIndicator = this._extensionObject.settings.get_boolean("show-indicator");
             if (showIndicator === true) {
