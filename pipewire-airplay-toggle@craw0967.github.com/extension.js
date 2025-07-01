@@ -55,6 +55,9 @@ export default class PipeWireAirPlayToggleExtension extends Extension {
             item.destroy();
         });
         this.indicator?.destroy();
+        // DO NOT REMOVE - This is important, so don't remove to "clean up" the code. 
+        // Without this delete action, the AirPlay speakers will duplicate in the UI when users lock their computer.
+        delete this.indicator;
 
         this.indicator = null;
         this.settings = null;

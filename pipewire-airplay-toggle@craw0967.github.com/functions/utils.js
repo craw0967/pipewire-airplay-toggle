@@ -6,6 +6,14 @@ Gio._promisify(
 
 import { logErr } from "./logs.js";
 
+/**
+ * Connects child classes and components to the extension's settings.
+ * Child classes should be designed in such a way that the function containing the connection logic can be called from here.
+ * Child classes should be initialized before this method is called so that their functions can be referenced from the extensionObject.
+ *
+ * @param {Extension} extensionObject - An instance of the default extension class.
+ * @param {Gio.Settings} settings - The settings object that contains the extension's configuration.
+ */
 export function connectSettings(extensionObject, settings) {
     settings.connect(
         "changed::indicator-icon",
@@ -22,6 +30,14 @@ export function connectSettings(extensionObject, settings) {
     );
 }
 
+/**
+ * Asynchronously executes a command and reads the output.
+ * 
+ * @param {string[]} argv - A list of string arguments
+ * @param {string | null} [input=null] - Input data, or null
+ * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object
+ * @returns {Promise<string[]>} A promise that resolves with an array of strings, each string representing a line in the output.
+ */
 export async function asyncExecCommandAndReadOutput(argv, input = null, cancellable = null) {
     let cancelId = 0;
     let flags =
