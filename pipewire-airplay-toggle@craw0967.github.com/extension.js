@@ -44,7 +44,7 @@ export default class PipeWireAirPlayToggleExtension extends Extension {
     }
 
     disable() {
-        this.indicator.quickSettingsItems.forEach((item) => {
+        this.indicator?.quickSettingsItems?.forEach((item) => {
             if (item._monitorProcess) {
                 item._monitorProcess.force_exit();
             }
@@ -55,7 +55,8 @@ export default class PipeWireAirPlayToggleExtension extends Extension {
             item.destroy();
         });
         this.indicator?.destroy();
-        delete this.indicator;
+
+        this.indicator = null;
         this.settings = null;
     }
 }
