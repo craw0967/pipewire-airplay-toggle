@@ -11,13 +11,13 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as QuickSettings from "resource:///org/gnome/shell/ui/quickSettings.js";
 import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
 
-import { logErr } from "./functions/logs.js";
-import { asyncExecCommandAndReadOutput } from "./functions/utils.js";
+import { logErr } from "../functions/logs.js";
+import { asyncExecCommandAndReadOutput } from "../functions/utils.js";
 import { 
     INDICATOR_TEXT,
     PW_MISSING_TITLE,
     PW_MISSING_BODY
-} from "./constants/config.js";
+} from "../constants/config.js";
 
 export const AirPlayToggle = GObject.registerClass(
     class AirPlayToggle extends QuickSettings.QuickToggle {

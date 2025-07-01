@@ -1,4 +1,3 @@
-//TODO - Strings in this file and design for constants do not get reocognized and auto added to the .pot file. Unclear how to resolve
 const INDICATOR_ICON_MODEL = [
     {
         label: "Music Note - Outline", 

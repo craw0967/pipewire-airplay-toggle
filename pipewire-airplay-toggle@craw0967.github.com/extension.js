@@ -19,8 +19,8 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
 import { connectSettings } from "./functions/utils.js";
-import { AirPlayIndicator } from "./indicator.js";
-import { AirPlayToggle } from "./toggle.js";
+import { AirPlayIndicator } from "./classes/indicator.js";
+import { AirPlayToggle } from "./classes/toggle.js";
 
 export default class PipeWireAirPlayToggleExtension extends Extension {
     constructor(metadata) {

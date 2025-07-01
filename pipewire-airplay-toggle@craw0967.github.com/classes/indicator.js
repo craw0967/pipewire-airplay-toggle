@@ -4,7 +4,7 @@ import Gio from "gi://Gio";
 import * as QuickSettings from "resource:///org/gnome/shell/ui/quickSettings.js";
 import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
 
-import { INDICATOR_ICON_MAP } from "./constants/config.js";
+import { INDICATOR_ICON_MAP } from "../constants/config.js";
 
 export const AirPlayIndicator = GObject.registerClass(
     class AirPlayIndicator extends QuickSettings.SystemIndicator {
