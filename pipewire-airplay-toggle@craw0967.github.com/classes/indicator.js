@@ -27,9 +27,6 @@ export const AirPlayIndicator = GObject.registerClass(
         /***
          * Get the currently selected icon for the indicator and toggle switch.
          * 
-         * Looks up the currently selected icon name in the extension's settings and
-         * returns a Gio.FileIcon object based on that icon name.
-         * 
          * @returns {Gio.FileIcon} - The icon that should be used for the indicator and toggle switch.
          */
         _getIcon() {
@@ -42,9 +39,6 @@ export const AirPlayIndicator = GObject.registerClass(
 
         /**
          * Updates the icon of the indicator and the toggle switch.
-         * 
-         * Fetches the currently selected icon name from the extension's settings and
-         * sets both the indicator and the toggle switch to use that icon.
          */
         setIndicatorIcon() {
             this._indicator.gicon = this._getIcon();
@@ -53,12 +47,6 @@ export const AirPlayIndicator = GObject.registerClass(
 
         /**
          * Sets the visibility of the indicator icon based on extension settings.
-         * 
-         * If the "show-indicator" setting is true, bind the visibility of the
-         * indicator to the "checked" property of the toggle. 
-         * 
-         * If the "show-indicator" setting is false, unbind any existing binding
-         * and hide the indicator.
          */
         setIndicatorIconVisibility() {
             const showIndicator = this._extensionObject.settings.get_boolean("show-indicator");
