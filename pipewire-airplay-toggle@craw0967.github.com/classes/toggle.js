@@ -19,12 +19,18 @@ import {
     PW_MISSING_BODY
 } from "../constants/config.js";
 
+/** Class representing a QuickSettings Quick Toggle */
 export const AirPlayToggle = GObject.registerClass(
     class AirPlayToggle extends QuickSettings.QuickToggle {
         _pipewireInstalled;
         _raopModuleId;
         _monitorProcess;
 
+        /**
+         * Initialize the AirPlayToggle class.
+         * 
+         * @param {Extension} extensionObject - An instance of the default extension class.
+         */
         _init(extensionObject) {
             super._init({
                 title: _(INDICATOR_TEXT),
@@ -36,6 +42,9 @@ export const AirPlayToggle = GObject.registerClass(
             this._connectToggle();
         }
 
+        /***
+         * Initialize the state of the toggle by checking if dependencies are available and setting up event monitoring. 
+         */ 
         async _setInitialState() {
             this._pipewireInstalled = await this._confirmPipeWireInstalled();
 
