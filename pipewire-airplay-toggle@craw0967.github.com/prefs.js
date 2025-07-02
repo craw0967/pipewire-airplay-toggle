@@ -24,13 +24,8 @@ const ComboOptions = GObject.registerClass({
     }
 });
 
+/** Class representing an Extension Preferences Window */
 export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferences {
-    constructor(metadata) {
-        super(metadata);
-
-        this.initTranslations("pipewire-airplay-toggle@craw0967.github.com");
-    }
-
     fillPreferencesWindow(window) {
         const groupsConfig = PREFS_GROUPS;
         window._settings = this.getSettings();
@@ -68,6 +63,14 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         }
     }
 
+    /***
+     * Create a new Adw.PreferencesGroup from a group configuration object.
+     *
+     * @param {Object} group - Group configuration object.
+     * @param {string} [group.title] - The group title.
+     * @param {string} [group.description] - The group description.
+     * @returns {Adw.PreferencesGroup} A new Adw.PreferencesGroup.
+     */
     _createGroup(group) {
         return new Adw.PreferencesGroup({
             title: group.title ? _(group.title) : null,
@@ -75,6 +78,14 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         });
     }
 
+    /***
+     * Create a new Adw.SwitchRow from a switch configuration object.
+     *
+     * @param {Object} row - Switch Row configuration object.
+     * @param {string} [row.title] - The switch title.
+     * @param {string} [row.subtitle] - The switch subtitle.
+     * @returns {Adw.SwitchRow} A new Adw.SwitchRow.
+     */
     _createSwitchRow(row) {
         return new Adw.SwitchRow({
             title: row.title ? _(row.title) : null,
@@ -82,6 +93,14 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         });
     }
 
+    /***
+     * Create a new Gio.ListStore from a list of ComboOptions objects.
+     *
+     * @param {Object[]} modelOptions - A list of objects representing ComboOptions objects.
+     * @param {string} modelOptions.label - The label for the option.
+     * @param {string} modelOptions.value - The value for the option.
+     * @returns {Gio.ListStore} A new Gio.ListStore containing the options.
+     */
     _createModel(modelOptions) {
         const model = new Gio.ListStore({
             item_type: ComboOptions
@@ -93,6 +112,15 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         return model;
     }
 
+    /***
+     * Create a new Adw.ComboRow from a combo configuration object.
+     *
+     * @param {Object} row - Combo Row configuration object.
+     * @param {string} [row.title] - The combo title.
+     * @param {string} [row.subtitle] - The combo subtitle.
+     * @param {Object[]} row.model - A list of objects representing ComboOptions objects.
+     * @returns {Adw.ComboRow} A new Adw.ComboRow.
+     */
     _createComboRow(row) {
         return new Adw.ComboRow({
             title: row.title ? _(row.title) : null,
@@ -102,19 +130,43 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         });
     }
 
+    /***
+     * Connects the switch row to the extension's settings notify event handler.
+     *
+     * When the switch is toggled, the extension's settings are updated.
+     * When the extension's settings change, the switch is updated.
+     *
+     * @param {Adw.PreferencesWindow} window - The window containing the switch row and the extension's settings
+     * @param {Object} rowConfig - The configuration object for the switch row.
+     * @param {string} rowConfig.settingsKey - The key in the extension's settings to bind to.
+     */
     _connectSwitchRow(window, rowConfig) {
         window._settings.bind(rowConfig.settingsKey, this._switchRow, 'active',
             Gio.SettingsBindFlags.DEFAULT);
     }
 
+    /***
+     * Connects the combo box row to the extension's settings notify event handler.
+     * 
+     * When the selected item of the combo box changes, the extension's settings are updated.
+     * When the extension's settings change, the selected item of the combo box is updated.
+     * 
+     * @param {Adw.PreferencesWindow} window - The window containing the combo box and the extension's settings.
+     * @param {Object} rowConfig - The configuration object for the combo box row.
+     * @param {string} rowConfig.settingsKey - The key in the extension's settings to bind to.
+     */
     _connectComboRow(window, rowConfig) {
+        // Update the setting if a new option is selected
         this._comboRow.connect('notify::selected-item', () => {
             const { selectedItem } = this._comboRow;
             window._settings.set_string(rowConfig.settingsKey, selectedItem.value);
         });
-
-        window._settings.connect('changed::logo-position',
+        
+        // Update the selected item in the UI if the selected option changes, even if changed via CLI, etc.
+        window._settings.connect(`changed::${rowConfig.settingsKey}`,
             () => this._comboRow.set_selected(window._settings.get_string(rowConfig.settingsKey).substring(6)));
+
+        // Set the intial selection in the UI based on the current setting
         this._comboRow.set_selected(window._settings.get_string(rowConfig.settingsKey).substring(6));
     }
 }
