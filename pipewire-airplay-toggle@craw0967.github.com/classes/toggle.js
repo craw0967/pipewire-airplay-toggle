@@ -1,18 +1,11 @@
 import GObject from "gi://GObject";
-import GLib from "gi://GLib";
-import Gio from "gi://Gio";
-Gio._promisify(
-    Gio.DataInputStream.prototype,
-    "read_line_async",
-    "read_line_finish_utf8"
-);
 
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as QuickSettings from "resource:///org/gnome/shell/ui/quickSettings.js";
 import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
 
 import { logErr } from "../functions/logs.js";
-import { asyncExecCommandAndReadOutput } from "../functions/utils.js";
+import { asyncExecCommandAndReadOutput, execCommandAndMonitor} from "../functions/utils.js";
 import { 
     INDICATOR_TEXT,
     PW_MISSING_TITLE,
@@ -74,6 +67,10 @@ export const AirPlayToggle = GObject.registerClass(
             }
         }
 
+        /***
+         * Connects the toggle button to its click event handler.
+         * When clicked, the toggle button will attempt to toggle the RAOP (AirPlay) module.
+         */
         _connectToggle() {
             this.connect("clicked", () => {
                 if (this._pipewireInstalled && this._raopModuleId) {
@@ -87,6 +84,11 @@ export const AirPlayToggle = GObject.registerClass(
             });
         }
         
+        /***
+         * Checks if PipeWire is installed.
+         * 
+         * @returns {Promise<boolean>} A promise that resolves to true if PipeWire is installed, false otherwise.
+         */
         async _confirmPipeWireInstalled() {
             try {
                 let pipewireInstalled = false;
@@ -111,6 +113,11 @@ export const AirPlayToggle = GObject.registerClass(
             }
         }
 
+        /***
+         * Tries to get the ID of the RAOP (AirPlay) module and stores it if available.
+         * 
+         * @returns {Promise<boolean>} A boolean indicating whether the module ID was found.
+         */
         async _getRaopModuleId() {
             try {
                 let moduleLoaded = false;
@@ -141,6 +148,9 @@ export const AirPlayToggle = GObject.registerClass(
             }
         }
 
+        /***
+         * Toggles the state of the RAOP (AirPlay) module by loading or unloading it.
+         */
         async _toggleAirPlay() {
             try {
                 const commandArray = [
@@ -168,52 +178,27 @@ export const AirPlayToggle = GObject.registerClass(
             }
         }
 
+        /***
+         * Sets up a process to monitor PipeWire module events and reads the output of the process to 
+         * determine when the RAOP module is loaded or unloaded.
+         */
         _monitorModuleEvents() {
             const command = ["pactl", "subscribe", "events=module"];
-            this._monitorProcess = Gio.Subprocess.new(
-                command,
-                Gio.SubprocessFlags.STDOUT_PIPE
-            );
-
-            const stdout = this._monitorProcess.get_stdout_pipe();
-            const stdoutStream = new Gio.DataInputStream({
-                base_stream: stdout,
-                close_base_stream: true,
-            });
-
-            this._readOutput(stdoutStream);
-        }
-
-        _readOutput(stdout) {
-            stdout.read_line_async(
-                GLib.PRIORITY_LOW,
-                null,
-                (stream, result) => {
-                    try {
-                        const [line] = stream.read_line_finish_utf8(result);
-
-                        if (line !== null) {
-                            // Process the output to determine when a module is loaded or unloaded
-                            if (
-                                this._raopModuleId &&
-                                line.includes(this._raopModuleId)
-                            ) {
-                                if (line.includes("remove")) {
-                                    this.checked = false;
-                                }
-                                if (line.includes("new")) {
-                                    this.checked = true;
-                                }
-                            }
-
-                            // Continue reading from the stream
-                            this._readOutput(stdout);
-                        }
-                    } catch (err) {
-                        logErr(err, this._extensionObject.settings?.get_boolean("show-debug"));
+            
+            execCommandAndMonitor(this._monitorProcess, command, true, null, null, (line) => {
+                // Process the output to determine when a module is loaded or unloaded
+                if (
+                    this._raopModuleId &&
+                    line.includes(this._raopModuleId)
+                ) {
+                    if (line.includes("remove")) {
+                        this.checked = false;
+                    }
+                    if (line.includes("new")) {
+                        this.checked = true;
                     }
                 }
-            );
+            });
         }
     }
 );
