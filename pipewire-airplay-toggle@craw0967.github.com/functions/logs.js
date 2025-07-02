@@ -1,3 +1,5 @@
+//Should this be a class and access settings directly to get 'enabled'?
+
 /**
  * Logs the given error message to the console if 'enabled' is true.
  * 

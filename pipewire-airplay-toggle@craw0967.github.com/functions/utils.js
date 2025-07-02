@@ -88,7 +88,7 @@ export async function asyncExecCommandAndReadOutput(argv, input = null, cancella
 
         return output;
     } catch (err) {
-        // TODO - this won't be able to reference this._settings
+        // TODO - this won't be able to reference this._settings. Should probably not be catching errors here, but rather throwing and letting the calling function catch and handle the error
         logErr(err, this._settings?.get_boolean("show-debug"));
 
         return null;
@@ -146,8 +146,8 @@ export function execCommandAndMonitor(proc, argv, logErrors, outCallback, inCall
  * @param {Gio.DataInputStream} stdout - The stream to read from
  * @param {Gio.SubprocessStdinPipe | null} stdin - The stream to write to if provided
  * @param {boolean} logErrors - Whether or not to log errors
- * @param {function | null} [inCallback=null] - Optional callback function to write to the process's stdin pipe
  * @param {function} outCallback - The callback function to call with each line read from stdout
+ * @param {function | null} [inCallback=null] - Optional callback function to write to the process's stdin pipe
  */
 function readOutput(stdout, stdin, logErrors, outCallback, inCallback) {
     stdout.read_line_async(
@@ -166,7 +166,7 @@ function readOutput(stdout, stdin, logErrors, outCallback, inCallback) {
                     }
 
                     // Continue reading from the stream
-                    readOutput(stdout, stdin, logErrors, inCallback, outCallback);
+                    readOutput(stdout, stdin, logErrors, outCallback, inCallback);
                 }
             } catch (err) {
                 logErr(err, logErrors);
