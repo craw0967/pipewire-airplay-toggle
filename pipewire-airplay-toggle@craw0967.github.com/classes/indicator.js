@@ -14,8 +14,8 @@ export const AirPlayIndicator = GObject.registerClass(
          * 
          * @param {Extension} extensionObject - An instance of the default extension class.
          */
-        _init(extensionObject) {
-            super._init();
+        constructor(extensionObject) {
+            super();
 
             this._indicator = this._addIndicator();
             this._extensionObject = extensionObject;

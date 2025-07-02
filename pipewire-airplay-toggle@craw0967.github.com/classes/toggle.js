@@ -24,8 +24,8 @@ export const AirPlayToggle = GObject.registerClass(
          * 
          * @param {Extension} extensionObject - An instance of the default extension class.
          */
-        _init(extensionObject) {
-            super._init({
+        constructor(extensionObject) {
+            super({
                 title: _(INDICATOR_TEXT),
                 toggleMode: false,
             });
@@ -110,6 +110,8 @@ export const AirPlayToggle = GObject.registerClass(
                 return pipewireInstalled;
             } catch (err) {
                 logErr(err, this._extensionObject.settings?.get_boolean("show-debug"));
+
+                return false;
             }
         }
 
@@ -145,6 +147,8 @@ export const AirPlayToggle = GObject.registerClass(
                 return moduleLoaded;
             } catch (err) {
                 logErr(err, this._extensionObject.settings?.get_boolean("show-debug"));
+
+                return false;
             }
         }
 
@@ -185,7 +189,7 @@ export const AirPlayToggle = GObject.registerClass(
         _monitorModuleEvents() {
             const command = ["pactl", "subscribe", "events=module"];
             
-            execCommandAndMonitor(this._monitorProcess, command, true, null, null, (line) => {
+            execCommandAndMonitor(this._monitorProcess, command, true, (line) => {
                 // Process the output to determine when a module is loaded or unloaded
                 if (
                     this._raopModuleId &&
@@ -198,7 +202,7 @@ export const AirPlayToggle = GObject.registerClass(
                         this.checked = true;
                     }
                 }
-            });
+            }, null, null);
         }
     }
 );

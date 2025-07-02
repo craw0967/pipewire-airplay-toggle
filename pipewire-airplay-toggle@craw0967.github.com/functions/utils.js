@@ -1,7 +1,7 @@
 import GLib from "gi://GLib";
 import Gio from "gi://Gio";
 Gio._promisify(
-    Gio.Subprocess.prototype, 
+    Gio.Subprocess.prototype,
     "communicate_utf8_async"
 );
 Gio._promisify(
@@ -10,7 +10,7 @@ Gio._promisify(
     "read_line_finish_utf8"
 );
 
-import { logErr, logWarn } from "./logs.js";
+import { logErr } from "./logs.js";
 
 /**
  * Connects child classes and components to the extension's settings.
@@ -90,6 +90,8 @@ export async function asyncExecCommandAndReadOutput(argv, input = null, cancella
     } catch (err) {
         // TODO - this won't be able to reference this._settings
         logErr(err, this._settings?.get_boolean("show-debug"));
+
+        return null;
     } finally {
         if (cancelId > 0) cancellable.disconnect(cancelId);
     }
@@ -104,11 +106,11 @@ export async function asyncExecCommandAndReadOutput(argv, input = null, cancella
  * @param {Gio.Subprocess} proc - Object used to store an instance of Gio.Subprocess. Will be initialized if not done in advance
  * @param {string[]} argv - The command line arguments
  * @param {boolean} logErrors - Whether or not to log errors
- * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object
- * @param {function | null} [inCallback=null] - Optional callback function to write to the process's stdin pipe
  * @param {function} outCallback - The callback function to call with each line read from stdout
+ * @param {function | null} [inCallback=null] - Optional callback function to write to the process's stdin pipe
+ * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object
  */
-export function execCommandAndMonitor(proc, argv, logErrors, cancellable = null, inCallback = null, outCallback) {
+export function execCommandAndMonitor(proc, argv, logErrors, outCallback, inCallback = null, cancellable = null) {
     let cancelId = 0;
     let flags =
         Gio.SubprocessFlags.STDOUT_PIPE |
@@ -128,8 +130,14 @@ export function execCommandAndMonitor(proc, argv, logErrors, cancellable = null,
         close_base_stream: true,
     });
     const stdinStream = inCallback ? proc.get_stdin_pipe() : null;
-    
-    readOutput(stdoutStream, stdinStream, logErrors, inCallback, outCallback);
+
+    try {
+        readOutput(stdoutStream, stdinStream, logErrors, outCallback, inCallback);
+    } catch (err) {
+        logErr(err, logErrors);
+    } finally {
+        if (cancelId > 0) cancellable.disconnect(cancelId);
+    }
 }
 
 /***
@@ -141,7 +149,7 @@ export function execCommandAndMonitor(proc, argv, logErrors, cancellable = null,
  * @param {function | null} [inCallback=null] - Optional callback function to write to the process's stdin pipe
  * @param {function} outCallback - The callback function to call with each line read from stdout
  */
-function readOutput(stdout, stdin, logErrors, inCallback, outCallback) {
+function readOutput(stdout, stdin, logErrors, outCallback, inCallback) {
     stdout.read_line_async(
         GLib.PRIORITY_LOW,
         null,
@@ -153,7 +161,7 @@ function readOutput(stdout, stdin, logErrors, inCallback, outCallback) {
                     outCallback(line);
 
                     // Execute stdin write operation defined by input callback function
-                    if(stdin && inCallback) {
+                    if (stdin && inCallback) {
                         inCallback(stdin);
                     }
 

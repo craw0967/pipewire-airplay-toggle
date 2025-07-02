@@ -1,0 +1,7 @@
+{
+    "sourceType": "module",
+    "type": "module",
+    "dependencies": {
+        "eslint": "^9.30.1"
+    }
+}

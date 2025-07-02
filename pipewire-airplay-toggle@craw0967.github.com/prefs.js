@@ -19,8 +19,8 @@ const ComboOptions = GObject.registerClass({
             null),
     },
 }, class ComboOptions extends GObject.Object {
-    _init(label, value) {
-        super._init({label, value});
+    constructor(label, value) {
+        super({label, value});
     }
 });
 
