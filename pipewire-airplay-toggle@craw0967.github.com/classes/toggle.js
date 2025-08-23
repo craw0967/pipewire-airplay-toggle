@@ -187,7 +187,7 @@ export const AirPlayToggle = GObject.registerClass(
          * determine when the RAOP module is loaded or unloaded.
          */
         _monitorModuleEvents() {
-            const command = ["pactl", "subscribe", "events=module"];
+            const command = ["pactl", "subscribe"];
             
             execCommandAndMonitor(this._monitorProcess, command, true, (line) => {
                 // Process the output to determine when a module is loaded or unloaded
