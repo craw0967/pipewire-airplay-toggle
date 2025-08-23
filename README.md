@@ -4,12 +4,14 @@ Simple Gnome-Shell extension to load and unload the 'module-raop-discover' Pipew
 
 You must be on Gnome 45 or later for this extension. PipeWire and the libpipewire-module-raop-discover module (installed via the 'pipewire-zeroconf' package on many distributions) must be installed. This extension does not support PulseAudio.
 
-<p style="padding: 5px; text-align: center;">
-  <img style="padding: 0 5px 0 5px; vertical-align: middle;" src="screenshot-enabled.png" title="'AirPlay® Speakers' Quick Settings Toggle - Enabled" alt="'AirPlay® Speakers' Quick Settings Toggle - Enabled"/>
-  <img style="padding: 0 5px 0 5px; vertical-align: middle;" src="screenshot-disabled.png" title="'AirPlay® Speakers' Quick Settings Toggle - Disabled" alt="'AirPlay® Speakers' Quick Settings Toggle - Disabled"/>
+<p align="center">
+  <img src="screenshot-enabled.png" title="'AirPlay® Speakers' Quick Settings Toggle - Enabled" alt="'AirPlay® Speakers' Quick Settings Toggle - Enabled"/>
 </p>
-<p style="padding: 5px; text-align: center;">
-  <img style="padding: 0 5px 0 5px; vertical-align: middle;" src="screenshot-prefs.png" title="'AirPlay® Speakers' Quick Settings Toggle Preferences Screen" alt="'AirPlay® Speakers' Quick Settings Toggle Preferences Screen"/>
+<p align="center">
+  <img src="screenshot-disabled.png" title="'AirPlay® Speakers' Quick Settings Toggle - Disabled" alt="'AirPlay® Speakers' Quick Settings Toggle - Disabled"/>
+</p>
+<p align="center">
+  <img src="screenshot-prefs.png" title="'AirPlay® Speakers' Quick Settings Toggle Preferences Screen" alt="'AirPlay® Speakers' Quick Settings Toggle Preferences Screen"/>
 </p>
 
 AirPlay® is a trademark of Apple Inc., registered in the U.S. and other countries and regions.
