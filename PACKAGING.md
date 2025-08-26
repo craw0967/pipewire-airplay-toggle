@@ -1,0 +1,13 @@
+## Steps to complete before packaging extension and merging to 'main'
+- Complete a code review
+    - No generic class names
+    - Run ESLint
+    - Correct formatting and other issues
+    - Remove excess logging
+- Fully test the extension
+    - TODO - Add *UAT* steps
+- Compile the gschema for the current version
+- Package the extension
+    - Ensure the `package_extension.sh` script is up to date
+    - Run the script
+    - Validate package contents are correct
