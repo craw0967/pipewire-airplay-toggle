@@ -6,6 +6,11 @@
     <value nick="option2" value="2"/>
     <value nick="option3" value="3"/>
     <value nick="option4" value="4"/>
+    <value nick="option5" value="5"/>
+    <value nick="option6" value="6"/>
+    <value nick="option7" value="7"/>
+    <value nick="option8" value="8"/>
+    <value nick="option9" value="9"/>
   </enum>
 
   <schema id="org.gnome.shell.extensions.pipewire-airplay-toggle" path="/org/gnome/shell/extensions/pipewire-airplay-toggle/">
