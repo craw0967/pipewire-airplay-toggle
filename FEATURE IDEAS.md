@@ -1,4 +1,0 @@
-- Pulseaudio support
-    - This may work with minor tweaks
-    - Would need to set up a VM with Gnome and Pulseaudio for testing
-    - Is it worth it though? Most major distros providing Gnome have switched to PipeWire
