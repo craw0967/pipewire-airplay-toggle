@@ -74,9 +74,9 @@ msgid "AirPlay Speakers"
 msgstr ""
 
 #: constants/config.js:76
-msgid "PipeWire or pipewire-zeroconf package not found"
+msgid "Supported Audio Server and/or zeroconf package not found"
 msgstr ""
 
 #: constants/config.js:77
-msgid "Please review and install these packages to use this extension. If you do not want to install these packages, you may wish to uninstall this extension."
+msgid "Please review and install either PipeWire and pipewire-zeroconf packages or PulseAudio and pulseaudio-zeroconf packages to use this extension. If you do not want to install these packages, you may wish to uninstall this extension."
 msgstr ""
