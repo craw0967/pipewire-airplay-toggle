@@ -212,40 +212,17 @@ export const AirPlayToggle = GObject.registerClass(
             execCommandAndMonitor(this._monitorProcess, command, true, (line) => {
                 // Process the output to determine when a module is loaded or unloaded
                 if (
-                    line.includes('module')
+                    this._raopModuleId &&
+                    line.includes(this._raopModuleId)
                 ) {
-                    switch (this._currentAudioServer) {
-                        case "pipewire":
-                            this._processModuleEvent(line);
-                            break;
-                        case "pulseaudio":
-                            this._getRaopModuleId().then(() => {
-                                this._processModuleEvent(line);
-                            })
-                            break;
-                        default:
-                            break;
+                    if (line.includes("remove")) {
+                        this.checked = false;
+                    }
+                    if (line.includes("new")) {
+                        this.checked = true;
                     }
                 }
             }, null, null);
-        }
-
-        /***
-         * Processes a line of output from the PipeWire and/or PulseAudio module event monitoring process.
-         * Determines when the RAOP module is loaded or unloaded by checking for the presence of the module ID in the line.
-         * If the module ID is present, sets the 'checked' property to true if the line indicates the module is loaded and false if unloaded.
-         * @param {string} line - The line of output from the PipeWire and/or PulseAudio module event monitoring process.
-         */
-        _processModuleEvent(line) {
-            if(this._raopModuleId &&
-                line.includes(this._raopModuleId)
-            ) {
-                if(line.includes("removed")) {
-                    this.checked = false;
-                } else if(line.includes("new")){
-                    this.checked = true;
-                }
-            }
         }
     }
 );
