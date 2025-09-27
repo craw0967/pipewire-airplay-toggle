@@ -15,8 +15,7 @@ import {
 /** Class representing a QuickSettings Quick Toggle */
 export const AirPlayToggle = GObject.registerClass(
     class AirPlayToggle extends QuickSettings.QuickToggle {
-        _supportedAudioServerInstalled;
-        _currentAudioServer;
+        _pipewireInstalled;
         _raopModuleId;
         _monitorProcess;
 
@@ -40,9 +39,9 @@ export const AirPlayToggle = GObject.registerClass(
          * Initialize the state of the toggle by checking if dependencies are available and setting up event monitoring. 
          */ 
         async _setInitialState() {
-            this._supportedAudioServerInstalled = await this._confirmsupportedAudioServerInstalled();
+            this._pipewireInstalled = await this._confirmPipeWireInstalled();
 
-            if (this._supportedAudioServerInstalled) {
+            if (this._pipewireInstalled) {
                 let moduleLoaded = await this._getRaopModuleId();
 
                 if (moduleLoaded) {
@@ -74,7 +73,7 @@ export const AirPlayToggle = GObject.registerClass(
          */
         _connectToggle() {
             this.connect("clicked", () => {
-                if (this._supportedAudioServerInstalled && this._raopModuleId) {
+                if (this._pipewireInstalled && this._raopModuleId) {
                     this._toggleAirPlay();
                 } else {
                     Main.notify(
@@ -86,13 +85,13 @@ export const AirPlayToggle = GObject.registerClass(
         }
         
         /***
-         * Checks if PipeWire or PulseAudio is installed.
+         * Checks if PipeWire is installed.
          * 
-         * @returns {Promise<boolean>} A promise that resolves to true if PipeWire or PulseAudio is installed, false otherwise.
+         * @returns {Promise<boolean>} A promise that resolves to true if PipeWire is installed, false otherwise.
          */
-        async _confirmsupportedAudioServerInstalled() {
+        async _confirmPipeWireInstalled() {
             try {
-                let supportedAudioServerInstalled = false;
+                let pipewireInstalled = false;
 
                 const commandArray = ["pactl", "info"];
                 const output = await asyncExecCommandAndReadOutput(
@@ -102,17 +101,13 @@ export const AirPlayToggle = GObject.registerClass(
                 );
 
                 if (output && output.length > 0) {
-                    const filtered = output.filter((line) => {
-                        return line.toLowerCase().includes("pipewire") || line.toLowerCase().includes("pulseaudio");
-                    });
-                    supportedAudioServerInstalled = filtered.length > 0;
-
-                    if(supportedAudioServerInstalled) {
-                        this._currentAudioServer = filtered[0].toLowerCase().includes("pipewire") ? "pipewire" : "pulseaudio";
-                    }
+                    const filtered = output.filter((line) =>
+                        line.includes("PipeWire")
+                    );
+                    pipewireInstalled = filtered.length > 0;
                 }
 
-                return supportedAudioServerInstalled;
+                return pipewireInstalled;
             } catch (err) {
                 logErr(err, this._extensionObject.settings?.get_boolean("show-debug"));
 
@@ -174,28 +169,13 @@ export const AirPlayToggle = GObject.registerClass(
                 );
 
                 if (output && output.length > 0) {
-
-                    switch (this._currentAudioServer) {
-                        case "pipewire":
-                            this._raopModuleId =
-                                !this._raopModuleId &&
-                                output &&
-                                output.length > 0 &&
-                                output[0].length > 0
-                                    ? output[0]
-                                    : this._raopModuleId;
-                            break;
-                        case "pulseaudio":
-                            this._raopModuleId =
-                                output &&
-                                output.length > 0
-                                    ? output
-                                    : this._raopModuleId;
-                            break;
-                        default:
-                            break;
-                    }
-                    
+                    this._raopModuleId =
+                        !this._raopModuleId &&
+                        output &&
+                        output.length > 0 &&
+                        output[0].length > 0
+                            ? output[0]
+                            : this._raopModuleId;
                 }
             } catch (err) {
                 logErr(err, this._extensionObject.settings?.get_boolean("show-debug"));
@@ -203,7 +183,7 @@ export const AirPlayToggle = GObject.registerClass(
         }
 
         /***
-         * Sets up a process to monitor PipeWire and/or PulseAudio module events and reads the output of the process to 
+         * Sets up a process to monitor PipeWire module events and reads the output of the process to 
          * determine when the RAOP module is loaded or unloaded.
          */
         _monitorModuleEvents() {

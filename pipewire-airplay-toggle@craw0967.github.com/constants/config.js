@@ -73,6 +73,6 @@ export const INDICATOR_ICON_MAP = INDICATOR_ICON_MODEL.reduce((acc, current) => 
 
 export const INDICATOR_TEXT = "AirPlay Speakers";
 
-export const PW_MISSING_TITLE = "Supported Audio Server and/or zeroconf package not found";
-export const PW_MISSING_BODY =  "Please review and install either PipeWire and pipewire-zeroconf packages or PulseAudio and pulseaudio-zeroconf packages to use this extension. " +
+export const PW_MISSING_TITLE = "PipeWire or pipewire-zeroconf package not found";
+export const PW_MISSING_BODY =  "Please review and install these packages to use this extension. " +
                                 "If you do not want to install these packages, you may wish to uninstall this extension.";
