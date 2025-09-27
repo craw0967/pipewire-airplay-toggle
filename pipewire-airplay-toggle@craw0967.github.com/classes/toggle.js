@@ -240,10 +240,9 @@ export const AirPlayToggle = GObject.registerClass(
             if(this._raopModuleId &&
                 line.includes(this._raopModuleId)
             ) {
-                if(line.includes("remove")) {
+                if(line.includes("removed")) {
                     this.checked = false;
-                }
-                if(line.includes("new")){
+                } else if(line.includes("new")){
                     this.checked = true;
                 }
             }
