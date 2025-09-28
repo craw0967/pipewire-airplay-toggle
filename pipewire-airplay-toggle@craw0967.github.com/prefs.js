@@ -38,6 +38,11 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         window.add(page);
 
         for (const groupConfig of groupsConfig) {
+            const hidden = typeof groupConfig.hidden === "function" ? groupConfig.hidden(window._settings) : groupConfig.hidden;
+            if(hidden) {
+                continue;
+            }
+
             const group = this._createGroup(groupConfig);
             page.add(group);
 

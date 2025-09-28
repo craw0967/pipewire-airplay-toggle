@@ -49,7 +49,7 @@ export function connectSettings(extensionObject, settings) {
  * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object
  * @returns {Promise<string[]>} A promise that resolves with an array of strings, each string representing a line in the output.
  */
-export async function asyncExecCommandAndReadOutput(argv, input = null, cancellable = null) {
+export async function asyncExecCommandAndReadOutput(argv, logErrors, input = null, cancellable = null) {
     let cancelId = 0;
     let flags =
         Gio.SubprocessFlags.STDOUT_PIPE |
@@ -88,9 +88,7 @@ export async function asyncExecCommandAndReadOutput(argv, input = null, cancella
 
         return output;
     } catch (err) {
-        // TODO - this won't be able to reference this._settings. Should probably not be catching errors here, but rather throwing and letting the calling function catch and handle the error
-        logErr(err, this._settings?.get_boolean("show-debug"));
-
+        logErr(err, logErrors);
         return null;
     } finally {
         if (cancelId > 0) cancellable.disconnect(cancelId);

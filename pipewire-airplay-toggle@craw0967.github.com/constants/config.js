@@ -28,6 +28,7 @@ const INDICATOR_ICON_MODEL = [
 
 export const PREFS_GROUPS = [
     {
+        hidden: false,
         title: "Appearance",
         //description: "",
         rows: [
@@ -51,6 +52,25 @@ export const PREFS_GROUPS = [
         ]
     },
     {
+        hidden: function(prefSettings) {
+            return prefSettings.get_string("audio-server") === "pipewire";
+        },
+        title: "PulseAudio Settings",
+        //description: "",
+        rows: [
+            {
+                type: "switch",
+                settingsKey: "hide-duplicate-raop-sinks",
+                row: {
+                    title: "Hide Duplicate Speakers",
+                    subtitle: "Remove duplicate speakers when PulseAudio loads more than one RAOP (AirPlay) sink. This may cause a very short, temporary UI freeze if there are a lot of duplicate speakers. " +
+                              "Instead of removing duplicate speakers, duplicates may be prevented by using PipeWire instead of PulseAudio, by disabling IPv6 networking, or by disabling IPv6 in Avahi."
+                }
+            }
+        ]
+    },
+    {
+        hidden: false,
         title: "Developer",
         //description: "",
         rows: [

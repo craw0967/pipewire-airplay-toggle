@@ -20,6 +20,12 @@
     <key name="show-indicator" type="b">
       <default>true</default>
     </key>
+    <key name="hide-duplicate-raop-sinks" type="b">
+      <default>false</default>
+    </key>
+    <key name="audio-server" type="s">
+      <default>'pipewire'</default>
+    </key>
     <key name="show-debug" type="b">
       <default>false</default>
     </key>
