@@ -1,8 +1,13 @@
-//TODO - Review and improve new text additions, especially in the prefs
-
-// Mock 'gettext' function to allow for easy, automated generation of the .pot file
-const _ = function gettext(string) {
-    return string;
+/***
+ * A function used to identify strings for automated localization tools like `xgettext`.
+ * This function takes an input string and returns it without modification.
+ * It is intended to be used to mark strings for inclusion in a `.pot` file for translation.
+ *
+ * @param {string} input - The string to include in the `.pot` file for translation.
+ * @returns {string} - The input string is returned without modification.
+ */
+const _ = function gettext(input) {
+    return input;
 }
 
 const INDICATOR_ICON_MODEL = [
@@ -48,7 +53,7 @@ export const PREFS_PAGES = [
                         settingsKey: "indicator-icon",
                         row: {
                             title: _("Indicator Icon"),
-                            subtitle: _("The icon to display on the Quick Settings button and the panel indicator"),
+                            subtitle: _("The icon to display on the Quick Settings button and the panel indicator."),
                             model: INDICATOR_ICON_MODEL,
                         }
                     },
@@ -57,7 +62,7 @@ export const PREFS_PAGES = [
                         settingsKey: "show-indicator",
                         row: {
                             title: _("Show Indicator"),
-                            subtitle: _("Show a panel indicator when the RAOP Discover (AirPlay) module is enabled")
+                            subtitle: _("Enable to show a panel indicator when the RAOP Discover (AirPlay) module is enabled.")
                         }
                     }
                 ]
@@ -74,8 +79,8 @@ export const PREFS_PAGES = [
                         settingsKey: "hide-duplicate-raop-sinks",
                         row: {
                             title: _("Hide Duplicate Speakers"),
-                            subtitle: _("Remove duplicate speakers when PulseAudio loads more than one RAOP (AirPlay) sink. This may cause a very short, temporary UI freeze if there are a lot of duplicate speakers. " +
-                                    "Instead of removing duplicate speakers, duplicates may be prevented by using PipeWire instead of PulseAudio, by disabling IPv6 networking, or by disabling IPv6 in Avahi.")
+                            subtitle: _("Enable to automatically remove duplicate AirPlay speakers when PulseAudio loads them more than once. " +
+                                        "(It may also be possible to prevent duplicate speakers by using PipeWire, by disabling IPv6 networking, or by disabling IPv6 in Avahi.)")
                         }
                     }
                 ]
@@ -90,7 +95,7 @@ export const PREFS_PAGES = [
                         settingsKey: "show-debug",
                         row: {
                             title: _("Enable Debug Statements"),
-                            subtitle: _("Enable debug statements for this extension")
+                            subtitle: _("Enable debug statements for this extension.")
                         }
                     }
                 ]
@@ -106,6 +111,6 @@ export const INDICATOR_ICON_MAP = INDICATOR_ICON_MODEL.reduce((acc, current) => 
 
 export const INDICATOR_TEXT = _("AirPlay Speakers");
 
-export const PW_MISSING_TITLE = _("Supported Audio Server and/or zeroconf package not found");
-export const PW_MISSING_BODY =  _("Please review and install either PipeWire and pipewire-zeroconf packages or PulseAudio and pulseaudio-zeroconf packages to use this extension. " +
-                                "If you do not want to install these packages, you may wish to uninstall this extension.");
+export const PW_MISSING_TITLE = _("Supported Audio Server and/or Modules Not Found");
+export const PW_MISSING_BODY =  _("Please review and install the required dependencies outlined in the 'pipewire-airplay-toggle' extension's Installation Guide - " +
+                                  "https://github.com/craw0967/pipewire-airplay-toggle/wiki/Installation-Guide");
