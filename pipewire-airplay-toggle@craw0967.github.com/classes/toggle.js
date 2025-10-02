@@ -20,6 +20,7 @@ export const AirPlayToggle = GObject.registerClass(
         _raopModuleId;
         _raopModuleInstalled;
         _monitorProcess;
+        _duplicateRemovalTimeout;
 
         /**
          * Initialize the AirPlayToggle class.
@@ -66,6 +67,10 @@ export const AirPlayToggle = GObject.registerClass(
 
                     // Set the 'checked' property back to false
                     this.checked = false;
+
+                    // The _toggleAirPlay method will always set a _raopModuleId value if the module exists.
+                    // However, for PulseAudio we want a null vaue when it's unloaded, so set it to null as an initial value
+                    this._raopModuleId = this._currentAudioServer === 'pulseaudio' ? null : this._raopModuleId;
                 }
 
                 this._monitorModuleEvents();
@@ -181,32 +186,18 @@ export const AirPlayToggle = GObject.registerClass(
                     null
                 );
                 
-                switch (this._currentAudioServer) {
-                    case "pipewire":
-                        this._raopModuleId =
-                            !this._raopModuleId &&
-                            output &&
-                            output.length > 0 &&
-                            output[0].length > 0
-                                ? output[0]
-                                : this._raopModuleId;
-                        break;
-                    case "pulseaudio":
-                        this._raopModuleId =
-                            output &&
-                            output.length > 0 &&
-                            output[0].length > 0
-                                ? output
-                                : this._raopModuleId;
-                        break;
-                    default:
-                        break;
-                }
+                this._raopModuleId =
+                    !this._raopModuleId &&
+                    output &&
+                    output.length > 0 &&
+                    output[0].length > 0
+                        ? output[0]
+                        : this._raopModuleId;
                 
                 this._raopModuleInstalled = !this._raopModuleInstalled && this._raopModuleId ? true : this._raopModuleInstalled;
 
             } catch (err) {
-                logErr(err, this.loggingEnabled);
+                logErr(err, this._loggingEnabled);
             }
         }
 
@@ -246,18 +237,44 @@ export const AirPlayToggle = GObject.registerClass(
                     }
                     break;
                 case "pulseaudio":
-                    // State 1: We know the module ID, watch for its removal
-                    if (this._raopModuleId && line.includes('module') && line.includes('remove') && line.includes(this._raopModuleId)) {
-                        this._raopModuleId = null;
-                        this.checked = false;
-                    
-                    // State 2: Module ID unknown, watch for new modules
-                    } else if(this._raopModuleId &&
-                        line.includes(this._raopModuleId)
-                    ) {
-                        this.checked = true;
-                        this._removeDuplicateRaopSinks();
+                    if(line.includes('module')) {
+                        // State 1: We know the module ID, watch for its removal
+                        if (this._raopModuleId && line.includes(this._raopModuleId) && line.includes('remove')) {
+                            this._raopModuleId = null;
+                            this.checked = false;
+                        
+                        // State 2: New module loaded, check if it's the one we want
+                        } else {
+                            // Module ID not known - check to see if it loaded. Sometimes _toggleAirplay sets the module ID before we get here, sometimes not.
+                            if(!this._raopModuleId && line.includes('new')) {
+                                await this._getRaopModuleId();
+                            }
+
+                            // Module ID is known
+                            if(this._raopModuleId &&
+                                line.includes(this._raopModuleId) 
+                            ){
+                                this.checked = true;
+                            }
+                        }
                     }
+
+                    // Handle sink events - debounce duplicate removal
+                    // Since these events are all async and we don't know when the new AirPlay sinks finish loading
+                    // we need to wait a short period of time after the last event to ensure they have finished loading
+                    if (this.checked && line.includes('sink') && line.includes('new')) {
+                        // Clear existing timeout and restart the timer
+                        if (this._duplicateRemovalTimeout) {
+                            clearTimeout(this._duplicateRemovalTimeout);
+                        }
+                        
+                        // Wait for sink events to settle (200ms after the LAST sink event)
+                        this._duplicateRemovalTimeout = setTimeout(() => {
+                            this._removeDuplicateRaopSinks();
+                            this._duplicateRemovalTimeout = null;
+                        }, 200);
+                    }
+                    
                     break;
                 default:
                     break;
@@ -269,7 +286,6 @@ export const AirPlayToggle = GObject.registerClass(
          * This method is for PulseAudio and shouldn't be necessary for PipeWire
          * Removes duplicate RAOP sink visibility by unloading the duplicate module IDs.
          * 
-         * This method can possibly cause a very temporary slowdown in UI responsiveness while unloading raop sink modules if there are a lot of duplicate raop outputs/sinks or the computer is slow.
          * Instead of unloading duplicate sinks, Users can prevent duplicates by using PipeWire, by disabling ipv6 networking, or by disabling ipv6 in avahi.
          */
         async _removeDuplicateRaopSinks() {
@@ -277,6 +293,9 @@ export const AirPlayToggle = GObject.registerClass(
                 return;
             }
             
+            // We could possibly request JSON output here using the `--format=json` option
+            // However I've noticed some issues with JSON output being malformed due to invalid characters
+            // Is it better to have possible parsing errors if the text output changes or risk possible JSON parsing errors if it arrives malformed?
             const command = [
                 "pactl",
                 "list",
@@ -333,7 +352,6 @@ export const AirPlayToggle = GObject.registerClass(
                 
                 if(name && name.includes('raop') && ownerModuleId) {
                     if(!ownerMap[name]) {
-                        // The output is frequently returned multiple times (TODO - determine if this is normal and fix if it isn't)
                         // Store data in a Set so we can easily ensure each ID is always unique
                         ownerMap[name] = new Set([ownerModuleId]);
                     } else {
