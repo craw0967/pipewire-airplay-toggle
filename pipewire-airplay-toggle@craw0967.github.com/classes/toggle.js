@@ -70,7 +70,7 @@ export const AirPlayToggle = GObject.registerClass(
 
                     // The _toggleAirPlay method will always set a _raopModuleId value if the module exists.
                     // However, for PulseAudio we want a null vaue when it's unloaded, so set it to null as an initial value
-                    this._raopModuleId = this._currentAudioServer === 'pulseaudio' ? null : this._raopModuleId;
+                    this._raopModuleId = this._currentAudioServer === "pulseaudio" ? null : this._raopModuleId;
                 }
 
                 this._monitorModuleEvents();
@@ -237,16 +237,16 @@ export const AirPlayToggle = GObject.registerClass(
                     }
                     break;
                 case "pulseaudio":
-                    if(line.includes('module')) {
+                    if(line.includes("module")) {
                         // State 1: We know the module ID, watch for its removal
-                        if (this._raopModuleId && line.includes(this._raopModuleId) && line.includes('remove')) {
+                        if (this._raopModuleId && line.includes(this._raopModuleId) && line.includes("remove")) {
                             this._raopModuleId = null;
                             this.checked = false;
                         
                         // State 2: New module loaded, check if it's the one we want
                         } else {
                             // Module ID not known - check to see if it loaded. Sometimes _toggleAirplay sets the module ID before we get here, sometimes not.
-                            if(!this._raopModuleId && line.includes('new')) {
+                            if(!this._raopModuleId && line.includes("new")) {
                                 await this._getRaopModuleId();
                             }
 
@@ -262,7 +262,7 @@ export const AirPlayToggle = GObject.registerClass(
                     // Handle sink events - debounce duplicate removal
                     // Since these events are all async and we don't know when the new AirPlay sinks finish loading
                     // we need to wait a short period of time after the last event to ensure they have finished loading
-                    if (this.checked && line.includes('sink') && line.includes('new')) {
+                    if (this.checked && line.includes("sink") && line.includes("new")) {
                         // Clear existing timeout and restart the timer
                         if (this._duplicateRemovalTimeout) {
                             clearTimeout(this._duplicateRemovalTimeout);
@@ -338,19 +338,19 @@ export const AirPlayToggle = GObject.registerClass(
 
             for(let line of output) {
                 // Reset if we reach a new Sink
-                if(line.startsWith('Sink #')) {
+                if(line.startsWith("Sink #")) {
                     name = null;
                     ownerModuleId = null;
                 }
                 
-                if(line.includes('Name:')) {
-                    name = line.split(': ')[1];
+                if(line.includes("Name:")) {
+                    name = line.split(": ")[1];
                 }
-                if(line.includes('Owner Module:')) {
-                    ownerModuleId = line.split(': ')[1];
+                if(line.includes("Owner Module:")) {
+                    ownerModuleId = line.split(": ")[1];
                 }
                 
-                if(name && name.includes('raop') && ownerModuleId) {
+                if(name && name.includes("raop") && ownerModuleId) {
                     if(!ownerMap[name]) {
                         // Store data in a Set so we can easily ensure each ID is always unique
                         ownerMap[name] = new Set([ownerModuleId]);
@@ -420,8 +420,8 @@ export const AirPlayToggle = GObject.registerClass(
          */
         async _asyncExecCommandAndUnloadModule(moduleId) {
             const command = [
-                'pactl',
-                'unload-module',
+                "pactl",
+                "unload-module",
                 moduleId
             ];
             asyncExecCommandAndReadOutput(

@@ -1,21 +1,21 @@
-import Gio from 'gi://Gio';
-import Adw from 'gi://Adw';
-import Gtk from 'gi://Gtk';
-import GObject from 'gi://GObject';
+import Gio from "gi://Gio";
+import Adw from "gi://Adw";
+import Gtk from "gi://Gtk";
+import GObject from "gi://GObject";
 
-import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {ExtensionPreferences, gettext as _} from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
-import { PREFS_GROUPS } from './constants/config.js';
-import { detectAudioServer } from './functions/utils.js';
+import { PREFS_GROUPS } from "./constants/config.js";
+import { detectAudioServer } from "./functions/utils.js";
 
 const ComboOptions = GObject.registerClass({
     Properties: {
-        'label': GObject.ParamSpec.string(
-            'label', 'label', 'label',
+        "label": GObject.ParamSpec.string(
+            "label", "label", "label",
             GObject.ParamFlags.READWRITE,
             null),
-        'value': GObject.ParamSpec.string(
-            'value', 'value', 'value',
+        "value": GObject.ParamSpec.string(
+            "value", "value", "value",
             GObject.ParamFlags.READWRITE,
             null),
     },
@@ -36,8 +36,8 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         
         // Create a preferences page, with a single group
         const page = new Adw.PreferencesPage({
-            title: _('Preferences'),
-            icon_name: 'dialog-information-symbolic'
+            title: _("Preferences"),
+            icon_name: "dialog-information-symbolic"
         });
         window.add(page);
 
@@ -52,13 +52,13 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
 
             for (const rowConfig of groupConfig.rows) {
                 switch(rowConfig.type) {
-                    case 'switch':
+                    case "switch":
                         this._switchRow = this._createSwitchRow(rowConfig.row);
                         group.add(this._switchRow);
 
                         this._connectSwitchRow(window, rowConfig);
                         break;
-                    case 'combo':
+                    case "combo":
                         this._comboRow = this._createComboRow(rowConfig.row);
                         group.add(this._comboRow);
                         
@@ -135,7 +135,7 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
             title: row.title ? _(row.title) : null,
             subtitle: row.subtitle ? _(row.subtitle) : null,
             model: this._createModel(row.model),
-            expression: new Gtk.PropertyExpression(ComboOptions, null, 'label')
+            expression: new Gtk.PropertyExpression(ComboOptions, null, "label")
         });
     }
 
@@ -150,7 +150,7 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
      * @param {string} rowConfig.settingsKey - The key in the extension's settings to bind to.
      */
     _connectSwitchRow(window, rowConfig) {
-        window._settings.bind(rowConfig.settingsKey, this._switchRow, 'active',
+        window._settings.bind(rowConfig.settingsKey, this._switchRow, "active",
             Gio.SettingsBindFlags.DEFAULT);
     }
 
@@ -166,7 +166,7 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
      */
     _connectComboRow(window, rowConfig) {
         // Update the setting if a new option is selected
-        this._comboRow.connect('notify::selected-item', () => {
+        this._comboRow.connect("notify::selected-item", () => {
             const { selectedItem } = this._comboRow;
             window._settings.set_string(rowConfig.settingsKey, selectedItem.value);
         });
