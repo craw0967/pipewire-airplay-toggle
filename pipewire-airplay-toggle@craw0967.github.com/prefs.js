@@ -5,7 +5,7 @@ import GObject from "gi://GObject";
 
 import {ExtensionPreferences, gettext as _} from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
-import { PREFS_GROUPS } from "./constants/config.js";
+import { PREFS_PAGES } from "./constants/config.js";
 import { detectAudioServer } from "./functions/utils.js";
 
 const ComboOptions = GObject.registerClass({
@@ -28,46 +28,50 @@ const ComboOptions = GObject.registerClass({
 /** Class representing an Extension Preferences Window */
 export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferences {
     async fillPreferencesWindow(window) {
-        const groupsConfig = PREFS_GROUPS;
+        const pagesConfig = PREFS_PAGES;
         window._settings = this.getSettings();
         
         // Detect audio server if not already set
         await this._detectAndSetAudioServer(window);
         
-        // Create a preferences page, with a single group
-        const page = new Adw.PreferencesPage({
-            title: _("Preferences"),
-            icon_name: "dialog-information-symbolic"
-        });
-        window.add(page);
+        // TODO - This works and isn't very slow because the number of configured preferences is low
+        // Need to consider optimizing this so that it's not using nested loops
+        for(const pageConfig of pagesConfig) {
+            // Create a preferences page, with a single group
+            const page = new Adw.PreferencesPage({
+                title: _(pageConfig.title),
+                icon_name: pageConfig.icon_name
+            });
+            window.add(page);
 
-        for (const groupConfig of groupsConfig) {
-            const hidden = typeof groupConfig.hidden === "function" ? groupConfig.hidden(window._settings) : groupConfig.hidden;
-            if(hidden) {
-                continue;
-            }
-
-            const group = this._createGroup(groupConfig);
-            page.add(group);
-
-            for (const rowConfig of groupConfig.rows) {
-                switch(rowConfig.type) {
-                    case "switch":
-                        this._switchRow = this._createSwitchRow(rowConfig.row);
-                        group.add(this._switchRow);
-
-                        this._connectSwitchRow(window, rowConfig);
-                        break;
-                    case "combo":
-                        this._comboRow = this._createComboRow(rowConfig.row);
-                        group.add(this._comboRow);
-                        
-                        this._connectComboRow(window, rowConfig)
-                        break;
-                    default:
-                        // Preference types should be explicitly set
+            for (const groupConfig of pageConfig.groups) {
+                const hidden = typeof groupConfig.hidden === "function" ? groupConfig.hidden(window._settings) : groupConfig.hidden;
+                if(hidden) {
+                    continue;
                 }
-                
+
+                const group = this._createGroup(groupConfig);
+                page.add(group);
+
+                for (const rowConfig of groupConfig.rows) {
+                    switch(rowConfig.type) {
+                        case "switch":
+                            this._switchRow = this._createSwitchRow(rowConfig.row);
+                            group.add(this._switchRow);
+
+                            this._connectSwitchRow(window, rowConfig);
+                            break;
+                        case "combo":
+                            this._comboRow = this._createComboRow(rowConfig.row);
+                            group.add(this._comboRow);
+                            
+                            this._connectComboRow(window, rowConfig)
+                            break;
+                        default:
+                            // Preference types should be explicitly set
+                    }
+                    
+                }
             }
         }
     }
