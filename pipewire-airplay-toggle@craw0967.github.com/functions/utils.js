@@ -13,6 +13,42 @@ Gio._promisify(
 import { logErr } from "./logs.js";
 
 /**
+ * Detects if PipeWire or PulseAudio is installed and returns which one.
+ * 
+ * @param {boolean} loggingEnabled - Whether to enable debug logging
+ * @returns {Promise<string|null>} "pipewire", "pulseaudio", or null if neither found
+ */
+export async function detectAudioServer(loggingEnabled = false) {
+    try {
+        const commandArray = ["pactl", "info"];
+        const output = await asyncExecCommandAndReadOutput(
+            commandArray,
+            loggingEnabled,
+            null,
+            null
+        );
+
+        if (output && output.length > 0) {
+            const filtered = output.filter((line) => {
+                return line.toLowerCase().includes("pipewire") || 
+                       line.toLowerCase().includes("pulseaudio");
+            });
+            
+            if (filtered.length > 0) {
+                return filtered[0].toLowerCase().includes("pipewire") 
+                    ? "pipewire" 
+                    : "pulseaudio";
+            }
+        }
+
+        return null;
+    } catch (err) {
+        logErr(err, loggingEnabled);
+        return null;
+    }
+}
+
+/**
  * Connects child classes and components to the extension's settings.
  * 
  * Child classes should be designed in such a way that the function containing the connection logic can be called from here.

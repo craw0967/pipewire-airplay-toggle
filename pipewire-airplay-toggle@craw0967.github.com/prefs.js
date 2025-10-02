@@ -6,6 +6,7 @@ import GObject from 'gi://GObject';
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import { PREFS_GROUPS } from './constants/config.js';
+import { detectAudioServer } from './functions/utils.js';
 
 const ComboOptions = GObject.registerClass({
     Properties: {
@@ -26,9 +27,12 @@ const ComboOptions = GObject.registerClass({
 
 /** Class representing an Extension Preferences Window */
 export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferences {
-    fillPreferencesWindow(window) {
+    async fillPreferencesWindow(window) {
         const groupsConfig = PREFS_GROUPS;
         window._settings = this.getSettings();
+        
+        // Detect audio server if not already set
+        await this._detectAndSetAudioServer(window);
         
         // Create a preferences page, with a single group
         const page = new Adw.PreferencesPage({
@@ -167,11 +171,44 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
             window._settings.set_string(rowConfig.settingsKey, selectedItem.value);
         });
         
-        // Update the selected item in the UI if the selected option changes, even if changed via CLI, etc.
-        window._settings.connect(`changed::${rowConfig.settingsKey}`,
-            () => this._comboRow.set_selected(window._settings.get_string(rowConfig.settingsKey).substring(6)));
+        // Update the selected item in the UI if the setting changes
+        window._settings.connect(`changed::${rowConfig.settingsKey}`, () => {
+            const value = window._settings.get_string(rowConfig.settingsKey);
+            this._comboRow.set_selected(this._findIndexByValue(this._comboRow.model, value));
+        });
 
-        // Set the intial selection in the UI based on the current setting
-        this._comboRow.set_selected(window._settings.get_string(rowConfig.settingsKey).substring(6));
+        // Set the initial selection
+        const initialValue = window._settings.get_string(rowConfig.settingsKey);
+        this._comboRow.set_selected(this._findIndexByValue(this._comboRow.model, initialValue));
+    }
+
+    /***
+     * Detects the audio server and updates the settings if needed.
+     * 
+     * @param {Adw.PreferencesWindow} window - The window containing the extension's settings.
+     */
+    async _detectAndSetAudioServer(window) {
+        const loggingEnabled = window._settings.get_boolean("show-debug");
+        const audioServer = await detectAudioServer(loggingEnabled);
+        
+        if (audioServer && window._settings.get_string("audio-server") !== audioServer) {
+            window._settings.set_string("audio-server", audioServer);
+        }
+    }
+
+    /***
+     * Find the index of an item in a Gio.ListStore by its value property.
+     * 
+     * @param {Gio.ListStore} model - The list store to search.
+     * @param {string} value - The value to search for.
+     * @returns {number} The index of the item, or 0 if not found.
+     */
+    _findIndexByValue(model, value) {
+        for (let i = 0; i < model.get_n_items(); i++) {
+            if (model.get_item(i).value === value) {
+                return i;
+            }
+        }
+        return 0; // fallback to first item
     }
 }

@@ -5,7 +5,7 @@ import * as QuickSettings from "resource:///org/gnome/shell/ui/quickSettings.js"
 import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
 
 import { logErr } from "../functions/logs.js";
-import { asyncExecCommandAndReadOutput, execCommandAndMonitor} from "../functions/utils.js";
+import { asyncExecCommandAndReadOutput, execCommandAndMonitor, detectAudioServer } from "../functions/utils.js";
 import { 
     INDICATOR_TEXT,
     PW_MISSING_TITLE,
@@ -18,6 +18,7 @@ export const AirPlayToggle = GObject.registerClass(
         _supportedAudioServerInstalled;
         _currentAudioServer;
         _raopModuleId;
+        _raopModuleInstalled;
         _monitorProcess;
 
         /**
@@ -33,20 +34,22 @@ export const AirPlayToggle = GObject.registerClass(
             
             this._extensionObject = extensionObject;
             this._loggingEnabled = this._extensionObject.settings?.get_boolean("show-debug");
+
             this._setInitialState();
             this._connectToggle();
+            
         }
 
         /***
          * Initialize the state of the toggle by checking if dependencies are available and setting up event monitoring. 
          */ 
         async _setInitialState() {
-            this._supportedAudioServerInstalled = await this._confirmsupportedAudioServerInstalled();
+            this._supportedAudioServerInstalled = await this._detectAndSetAudioServer();
 
             if (this._supportedAudioServerInstalled) {
-                let moduleLoaded = await this._getRaopModuleId();
+                this._raopModuleInstalled = await this._getRaopModuleId();
 
-                if (moduleLoaded) {
+                if (this._raopModuleInstalled) {
                     this.checked = true;
                 } else {
                     // We need the module ID to monitor events related to the module
@@ -75,7 +78,7 @@ export const AirPlayToggle = GObject.registerClass(
          */
         _connectToggle() {
             this.connect("clicked", () => {
-                if (this._supportedAudioServerInstalled && this._raopModuleId) {
+                if (this._supportedAudioServerInstalled && this._raopModuleInstalled) {
                     this._toggleAirPlay();
                 } else {
                     Main.notify(
@@ -91,34 +94,19 @@ export const AirPlayToggle = GObject.registerClass(
          * 
          * @returns {Promise<boolean>} A promise that resolves to true if PipeWire or PulseAudio is installed, false otherwise.
          */
-        async _confirmsupportedAudioServerInstalled() {
+        async _detectAndSetAudioServer() {
             try {
-                let supportedAudioServerInstalled = false;
+                const audioServer = await detectAudioServer(this._loggingEnabled);
+                if (audioServer) {
+                    this._currentAudioServer = audioServer;
+                    this._setAudioServer();
 
-                const commandArray = ["pactl", "info"];
-                const output = await asyncExecCommandAndReadOutput(
-                    commandArray,
-                    this._loggingEnabled,
-                    null,
-                    null
-                );
-
-                if (output && output.length > 0) {
-                    const filtered = output.filter((line) => {
-                        return line.toLowerCase().includes("pipewire") || line.toLowerCase().includes("pulseaudio");
-                    });
-                    supportedAudioServerInstalled = filtered.length > 0;
-
-                    if(supportedAudioServerInstalled) {
-                        this._currentAudioServer = filtered[0].toLowerCase().includes("pipewire") ? "pipewire" : "pulseaudio";
-                        this._setAudioServer();
-                    }
+                    return true;
                 }
 
-                return supportedAudioServerInstalled;
+                return false;
             } catch (err) {
                 logErr(err, this._loggingEnabled);
-
                 return false;
             }
         }
@@ -132,7 +120,7 @@ export const AirPlayToggle = GObject.registerClass(
             if(this._currentAudioServer && this._extensionObject.settings.get_string("audio-server") !== this._currentAudioServer) {
                 this._extensionObject.settings.set_string("audio-server", this._currentAudioServer);
                 
-            } else if (!this._supportedAudioServerInstalled || !this._currentAudioServer) {
+            } else if (!this._currentAudioServer) {
                 this._extensionObject.settings.set_string("audio-server", "pipewire");
 
             }
@@ -203,7 +191,7 @@ export const AirPlayToggle = GObject.registerClass(
                                 ? output[0]
                                 : this._raopModuleId;
                         break;
-                    case "pulseaudio": // TODO - Add documentation around pulseaudio use - pulseaudio support requires avahi, pulseaudio-zeroconf (might be pulseaudio-module-raop on ubuntu), and pulseaudio-rtp
+                    case "pulseaudio":
                         this._raopModuleId =
                             output &&
                             output.length > 0 &&
@@ -215,6 +203,8 @@ export const AirPlayToggle = GObject.registerClass(
                         break;
                 }
                 
+                this._raopModuleInstalled = !this._raopModuleInstalled && this._raopModuleId ? true : this._raopModuleInstalled;
+
             } catch (err) {
                 logErr(err, this.loggingEnabled);
             }
@@ -229,25 +219,8 @@ export const AirPlayToggle = GObject.registerClass(
             
             execCommandAndMonitor(this._monitorProcess, command, true, (line) => {
                 // Process the output to determine when a module is loaded or unloaded
-                if (
-                    line.includes('module')
-                ) {
-                    switch (this._currentAudioServer) {
-                        case "pipewire":
-                            this._processModuleEvent(line);
-                            break;
-                        case "pulseaudio":
-                            this._getRaopModuleId().then(() => {
-                                this._processModuleEvent(line);
-                                if(this.checked) {
-                                    this._removeDuplicateRaopSinks();
-                                }
-                            })
-                            break;
-                        default:
-                            break;
-                    }
-                }
+                this._processModuleEvent(line);
+                
             }, null, null);
         }
 
@@ -258,17 +231,38 @@ export const AirPlayToggle = GObject.registerClass(
          * 
          * @param {string} line - The line of output from the PipeWire and/or PulseAudio module event monitoring process.
          */
-        _processModuleEvent(line) {
-            if(this._raopModuleId &&
-                line.includes(this._raopModuleId)
-            ) {
-                if(line.includes("remove")) {
-                    this.checked = false;
-                }
-                if(line.includes("new")){
-                    this.checked = true;
-                }
+        async _processModuleEvent(line) {
+            switch (this._currentAudioServer) {
+                case "pipewire":
+                    if(this._raopModuleId &&
+                        line.includes(this._raopModuleId)
+                    ) {
+                        if(line.includes("remove")) {
+                            this.checked = false;
+                        }
+                        if(line.includes("new")){
+                            this.checked = true;
+                        }
+                    }
+                    break;
+                case "pulseaudio":
+                    // State 1: We know the module ID, watch for its removal
+                    if (this._raopModuleId && line.includes('module') && line.includes('remove') && line.includes(this._raopModuleId)) {
+                        this._raopModuleId = null;
+                        this.checked = false;
+                    
+                    // State 2: Module ID unknown, watch for new modules
+                    } else if(this._raopModuleId &&
+                        line.includes(this._raopModuleId)
+                    ) {
+                        this.checked = true;
+                        this._removeDuplicateRaopSinks();
+                    }
+                    break;
+                default:
+                    break;
             }
+            
         }
 
         /***
@@ -279,7 +273,6 @@ export const AirPlayToggle = GObject.registerClass(
          * Instead of unloading duplicate sinks, Users can prevent duplicates by using PipeWire, by disabling ipv6 networking, or by disabling ipv6 in avahi.
          */
         async _removeDuplicateRaopSinks() {
-            // TODO - finish adding this user setting
             if(!this._extensionObject.settings?.get_boolean("hide-duplicate-raop-sinks")) {
                 return;
             }
