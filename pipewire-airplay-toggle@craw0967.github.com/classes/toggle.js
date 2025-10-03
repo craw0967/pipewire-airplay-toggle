@@ -15,8 +15,7 @@ import {
 /** Class representing a QuickSettings Quick Toggle */
 export const AirPlayToggle = GObject.registerClass(
     class AirPlayToggle extends QuickSettings.QuickToggle {
-        _supportedAudioServerInstalled;
-        _currentAudioServer;
+        _pipewireInstalled;
         _raopModuleId;
         _raopModuleInstalled;
         _monitorProcess;
@@ -95,9 +94,9 @@ export const AirPlayToggle = GObject.registerClass(
         }
         
         /***
-         * Checks if PipeWire or PulseAudio is installed.
+         * Checks if PipeWire is installed.
          * 
-         * @returns {Promise<boolean>} A promise that resolves to true if PipeWire or PulseAudio is installed, false otherwise.
+         * @returns {Promise<boolean>} A promise that resolves to true if PipeWire is installed, false otherwise.
          */
         async _detectAndSetAudioServer() {
             try {
@@ -202,7 +201,7 @@ export const AirPlayToggle = GObject.registerClass(
         }
 
         /***
-         * Sets up a process to monitor PipeWire and/or PulseAudio module events and reads the output of the process to 
+         * Sets up a process to monitor PipeWire module events and reads the output of the process to 
          * determine when the RAOP module is loaded or unloaded.
          */
         _monitorModuleEvents() {
