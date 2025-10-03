@@ -13,6 +13,42 @@ Gio._promisify(
 import { logErr } from "./logs.js";
 
 /**
+ * Detects if PipeWire or PulseAudio is installed and returns which one.
+ * 
+ * @param {boolean} loggingEnabled - Whether to enable debug logging
+ * @returns {Promise<string|null>} "pipewire", "pulseaudio", or null if neither found
+ */
+export async function detectAudioServer(loggingEnabled = false) {
+    try {
+        const commandArray = ["pactl", "info"];
+        const output = await asyncExecCommandAndReadOutput(
+            commandArray,
+            loggingEnabled,
+            null,
+            null
+        );
+
+        if (output && output.length > 0) {
+            const filtered = output.filter((line) => {
+                return line.toLowerCase().includes("pipewire") || 
+                       line.toLowerCase().includes("pulseaudio");
+            });
+            
+            if (filtered.length > 0) {
+                return filtered[0].toLowerCase().includes("pipewire") 
+                    ? "pipewire" 
+                    : "pulseaudio";
+            }
+        }
+
+        return null;
+    } catch (err) {
+        logErr(err, loggingEnabled);
+        return null;
+    }
+}
+
+/**
  * Connects child classes and components to the extension's settings.
  * 
  * Child classes should be designed in such a way that the function containing the connection logic can be called from here.
@@ -49,7 +85,7 @@ export function connectSettings(extensionObject, settings) {
  * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object
  * @returns {Promise<string[]>} A promise that resolves with an array of strings, each string representing a line in the output.
  */
-export async function asyncExecCommandAndReadOutput(argv, input = null, cancellable = null) {
+export async function asyncExecCommandAndReadOutput(argv, logErrors, input = null, cancellable = null) {
     let cancelId = 0;
     let flags =
         Gio.SubprocessFlags.STDOUT_PIPE |
@@ -88,9 +124,7 @@ export async function asyncExecCommandAndReadOutput(argv, input = null, cancella
 
         return output;
     } catch (err) {
-        // TODO - this won't be able to reference this._settings. Should probably not be catching errors here, but rather throwing and letting the calling function catch and handle the error
-        logErr(err, this._settings?.get_boolean("show-debug"));
-
+        logErr(err, logErrors);
         return null;
     } finally {
         if (cancelId > 0) cancellable.disconnect(cancelId);
