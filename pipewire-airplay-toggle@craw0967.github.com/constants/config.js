@@ -78,7 +78,7 @@ export const PREFS_PAGES = [
                         type: "switch",
                         settingsKey: "hide-duplicate-raop-sinks",
                         row: {
-                            title: _("Hide Duplicate Speakers"),
+                            title: _("Remove Duplicate Speakers"),
                             subtitle: _("Enable to automatically remove duplicate AirPlay speakers when PulseAudio loads them more than once. " +
                                         "(It may also be possible to prevent duplicate speakers by using PipeWire, by disabling IPv6 networking, or by disabling IPv6 in Avahi.)")
                         }

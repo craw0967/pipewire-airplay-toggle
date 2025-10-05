@@ -68,7 +68,7 @@ msgid "PulseAudio Settings"
 msgstr ""
 
 #: constants/config.js:76
-msgid "Hide Duplicate Speakers"
+msgid "Remove Duplicate Speakers"
 msgstr ""
 
 #: constants/config.js:77
