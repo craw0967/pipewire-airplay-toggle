@@ -4,7 +4,7 @@ This is a simple Gnome-Shell extension to load and unload the 'module-raop-disco
 
 To use this extension, you must be using GNOME 45 or later and PipeWire (or PulseAudio starting with version 7), along with other dependencies.
 
-More details, including installation and usage guides, can be found on the [Wiki](https://github.com/craw0967/pipewire-airplay-toggle/wiki)
+More details, including an installation and a user guide, can be found on the [Wiki](https://github.com/craw0967/pipewire-airplay-toggle/wiki)
 
 Note: Basic PulseAudio support has been added because it was relatively straightforward to do. The focus of this project however is still PipeWire, and future versions may include updates that rely on PipeWire specific features.
 
