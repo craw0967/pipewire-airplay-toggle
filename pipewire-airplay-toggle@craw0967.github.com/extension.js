@@ -39,19 +39,25 @@ export default class PipeWireAirPlayToggleExtension extends Extension {
     }
 
     disable() {
-        this.indicator?.quickSettingsItems?.forEach((item) => {
-            if (item._monitorProcess) {
-                item._monitorProcess.force_exit();
+        if(this.toggle) {
+            if (this.toggle._monitorProcess) {
+                this.toggle._monitorProcess.force_exit();
             }
 
-            item._monitorProcess = null;
-            item._raopModuleId = null;
+            this.toggle._monitorProcess = null;
+            this.toggle._raopModuleId = null;
 
+            this.toggle.destroy();
+            this.toggle = null;
+        }
+
+        this.indicator?.quickSettingsItems?.forEach((item) => {
             item.destroy();
+            item = null;
         });
         this.indicator?.destroy();
-
         this.indicator = null;
+
         this.settings = null;
     }
 }
