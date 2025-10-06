@@ -1,4 +1,4 @@
-# pipewire-airplay-toggle Version 7
+# pipewire-airplay-toggle Version 8
 # Copyright (C) 2024
 # This file is distributed under the same license as the pipewire-airplay-toggle package.
 #

@@ -1,6 +1,6 @@
 {
   "name": "PipeWire AirPlay Toggle",
-  "description": "Quick Setting menu toggle to enable/disable the RAOP Discover Module in PipeWire, allowing users to quickly and easily show or hide their AirPlay enabled speakers. This extension now also supports PulseAudio starting from version 7. For full details and dependency information, please review the GitHub repository wiki.",
+  "description": "Quick Setting menu toggle to enable/disable the RAOP Discover Module in PipeWire, allowing users to quickly and easily show or hide their AirPlay enabled speakers. This extension now also supports PulseAudio starting from version 8. For full details and dependency information, please review the GitHub repository wiki.",
   "uuid": "pipewire-airplay-toggle@craw0967.github.com",
   "shell-version": [
     "45",
