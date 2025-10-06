@@ -19,7 +19,7 @@
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
-import { connectSettings } from "./functions/utils.js";
+import { connectSettings, disconnectSettings } from "./functions/utils.js";
 import { AirPlayIndicator } from "./classes/indicator.js";
 import { AirPlayToggle } from "./classes/toggle.js";
 
@@ -39,25 +39,13 @@ export default class PipeWireAirPlayToggleExtension extends Extension {
     }
 
     disable() {
-        if(this.toggle) {
-            if (this.toggle._monitorProcess) {
-                this.toggle._monitorProcess.force_exit();
-            }
+        // https://gjs.guide/extensions/review-guidelines/review-guidelines.html#destroy-all-objects
 
-            this.toggle._monitorProcess = null;
-            this.toggle._raopModuleId = null;
-
-            this.toggle.destroy();
-            this.toggle = null;
-        }
-
-        this.indicator?.quickSettingsItems?.forEach((item) => {
-            item.destroy();
-            item = null;
-        });
+        // this.toggle.destroy() will get called and this.toggle will get set to null by this.indicator.destroy()
         this.indicator?.destroy();
         this.indicator = null;
 
+        disconnectSettings(this, this.settings);
         this.settings = null;
     }
 }

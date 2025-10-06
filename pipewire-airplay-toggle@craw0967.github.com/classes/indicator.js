@@ -24,6 +24,18 @@ export const AirPlayIndicator = GObject.registerClass(
             this.setIndicatorIconVisibility();
         }
 
+        /**
+         * Clean up and destroy the indicator and any child QuickSettingsItems.
+         * This should be called when the extension is being disabled or unloaded.
+         */
+        destroy() {
+            this.quickSettingsItems?.forEach((item) => {
+                item.destroy();
+                item = null;
+            });
+            super.destroy();
+        }
+
         /***
          * Get the currently selected icon for the indicator and toggle switch.
          * 

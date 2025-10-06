@@ -40,6 +40,22 @@ export const AirPlayToggle = GObject.registerClass(
             
         }
 
+        /**
+         * Clean up and destroy the toggle and any resources and events used or monitored by the class.
+         * This should be called when the extension is being disabled or unloaded.
+         */
+        destroy() {
+            this._monitorProcess?.force_exit();
+
+            this._pipewireInstalled = null;
+            this._raopModuleId = null;
+            this._raopModuleInstalled = null;
+            this._monitorProcess = null;
+            this._duplicateRemovalTimeout = null;
+
+            super.destroy();
+        }
+
         /***
          * Initialize the state of the toggle by checking if dependencies are available and setting up event monitoring. 
          */ 

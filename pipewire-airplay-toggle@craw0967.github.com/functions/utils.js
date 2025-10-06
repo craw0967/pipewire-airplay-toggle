@@ -74,6 +74,29 @@ export function connectSettings(extensionObject, settings) {
 }
 
 /**
+ * Disconnects the extension's settings event handlers from the given settings object.
+ * This should be called when the extension is disabled or unloaded.
+ * 
+ * @param {Extension} extensionObject - An instance of the default extension class.
+ * @param {Gio.Settings} settings - The settings object that contains the extension's configuration.
+ */
+export function disconnectSettings(extensionObject, settings) {
+    settings.disconnect(
+        "changed::indicator-icon",
+        () => {
+            extensionObject.indicator.setIndicatorIcon();
+        }
+    );
+
+    settings.disconnect(
+        "changed::show-indicator",
+        () => {
+            extensionObject.indicator.setIndicatorIconVisibility();
+        }
+    );
+}
+
+/**
  * Execute a command asynchronously and return the output from `stdout` on success.
  * Throws, catches, and logs output from `stderr` on failure
  * 
