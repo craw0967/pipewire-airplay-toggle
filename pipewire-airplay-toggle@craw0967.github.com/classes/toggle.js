@@ -12,9 +12,11 @@ import {
     PW_MISSING_BODY
 } from "../constants/config.js";
 
+import { AirPlayToggleMenu } from "./toggleMenu.js";
+
 /** Class representing a QuickSettings Quick Toggle */
 export const AirPlayToggle = GObject.registerClass(
-    class AirPlayToggle extends QuickSettings.QuickToggle {
+    class AirPlayToggle extends QuickSettings.QuickMenuToggle {
         _pipewireInstalled;
         _raopModuleId;
         _raopModuleInstalled;
@@ -35,6 +37,8 @@ export const AirPlayToggle = GObject.registerClass(
             this._extensionObject = extensionObject;
             this._loggingEnabled = this._extensionObject.settings?.get_boolean("show-debug");
 
+            this._menu = new AirPlayToggleMenu(extensionObject, this); 
+
             this._setInitialState();
             this._connectToggle();
             
@@ -45,6 +49,8 @@ export const AirPlayToggle = GObject.registerClass(
          * This should be called when the extension is being disabled or unloaded.
          */
         destroy() {
+            this._menu?.destroy();
+            
             this._monitorProcess?.force_exit();
 
             this._pipewireInstalled = null;
@@ -54,6 +60,11 @@ export const AirPlayToggle = GObject.registerClass(
             this._duplicateRemovalTimeout = null;
 
             super.destroy();
+        }
+
+        setIndicatorIcon(icon) {
+            this.gicon = icon;
+            this._menu.setMenuHeader(icon);
         }
 
         /***

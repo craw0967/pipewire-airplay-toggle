@@ -33,6 +33,10 @@ export const AirPlayIndicator = GObject.registerClass(
                 item.destroy();
                 item = null;
             });
+
+            this._binding?.unbind();
+            this._binding = null;
+
             super.destroy();
         }
 
@@ -53,8 +57,10 @@ export const AirPlayIndicator = GObject.registerClass(
          * Updates the icon of the indicator and the toggle switch.
          */
         setIndicatorIcon() {
-            this._indicator.gicon = this._getIcon();
-            this._extensionObject.toggle.gicon = this._getIcon();
+            const icon = this._getIcon();
+
+            this._indicator.gicon = icon;
+            this._extensionObject.toggle.setIndicatorIcon(icon);
         }
 
         /**
@@ -72,10 +78,8 @@ export const AirPlayIndicator = GObject.registerClass(
                     );
                 }
             } else {
-                if (this._binding) {
-                    this._binding.unbind();
-                    this._binding = null;
-                }
+                this._binding?.unbind();
+                this._binding = null;
                 this._indicator.visible = false;
             }
         }

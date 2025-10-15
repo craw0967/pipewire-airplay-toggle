@@ -20,6 +20,9 @@
     <key name="show-indicator" type="b">
       <default>true</default>
     </key>
+    <key name="combined-speakers" type="b">
+      <default>false</default>
+    </key>
     <key name="hide-duplicate-raop-sinks" type="b">
       <default>false</default>
     </key>
