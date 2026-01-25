@@ -1,0 +1,7 @@
+.pw-ap-toggle-icon-button:checked {
+    background-color: -st-accent-color;
+}
+
+.pw-ap-toggle-icon-button:checked:hover {
+    background-color: st-mix(-st-accent-color, -st-accent-fg-color, 95%);
+}

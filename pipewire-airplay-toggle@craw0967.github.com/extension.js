@@ -19,33 +19,39 @@
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
-import { connectSettings, disconnectSettings } from "./functions/utils.js";
 import { AirPlayIndicator } from "./classes/indicator.js";
 import { AirPlayToggle } from "./classes/toggle.js";
+import { AirPlayMultiSpeakerMenu } from "./classes/multiSpeakerMenu.js";
+import { AirPlayToggleExtensionState } from "./classes/state.js";
 
 export default class PipeWireAirPlayToggleExtension extends Extension {
     enable() {
         this.settings = this.getSettings();
+        AirPlayToggleExtensionState.setSettings(this.settings);
 
-        this.toggle = new AirPlayToggle(this)
+        this.toggle = new AirPlayToggle(this);
         this.indicator = new AirPlayIndicator(this);
         this.indicator.quickSettingsItems.push(this.toggle);
-
-        connectSettings(this, this.settings);
 
         Main.panel.statusArea.quickSettings.addExternalIndicator(
             this.indicator
         );
+
+        this.multiSpeakerMenu = new AirPlayMultiSpeakerMenu(this);
     }
 
     disable() {
         // https://gjs.guide/extensions/review-guidelines/review-guidelines.html#destroy-all-objects
 
+        this.multiSpeakerMenu?.destroy();
+        this.multiSpeakerMenu = null;
+        
         // this.toggle.destroy() will get called and this.toggle will get set to null by this.indicator.destroy()
         this.indicator?.destroy();
         this.indicator = null;
 
-        disconnectSettings(this, this.settings);
         this.settings = null;
+
+        AirPlayToggleExtensionState.destroy();
     }
 }

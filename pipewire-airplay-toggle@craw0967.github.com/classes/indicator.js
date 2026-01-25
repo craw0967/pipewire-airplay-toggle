@@ -4,7 +4,10 @@ import Gio from "gi://Gio";
 import * as QuickSettings from "resource:///org/gnome/shell/ui/quickSettings.js";
 import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
 
+import { connectSettings, disconnectSettings } from "../functions/utils.js";
 import { INDICATOR_ICON_MAP } from "../constants/config.js";
+
+import { AirPlayToggleExtensionState } from "./state.js";
 
 /** Class representing a QuickSettings System Indicator */
 export const AirPlayIndicator = GObject.registerClass(
@@ -17,8 +20,9 @@ export const AirPlayIndicator = GObject.registerClass(
         constructor(extensionObject) {
             super();
 
-            this._indicator = this._addIndicator();
             this._extensionObject = extensionObject;
+
+            this._indicator = this._addIndicator();
 
             this.setIndicatorIcon();
             this.setIndicatorIconVisibility();
@@ -29,6 +33,8 @@ export const AirPlayIndicator = GObject.registerClass(
          * This should be called when the extension is being disabled or unloaded.
          */
         destroy() {
+            disconnectSettings(this._extensionObject, this._extensionObject.settings);
+
             this.quickSettingsItems?.forEach((item) => {
                 item.destroy();
                 item = null;
@@ -38,6 +44,14 @@ export const AirPlayIndicator = GObject.registerClass(
             this._binding = null;
 
             super.destroy();
+        }
+
+        _connectSettings() {
+            connectSettings(this._extensionObject, this._extensionObject.settings);
+            
+            this.connectSetting("show-debug", () => {
+                AirPlayToggleExtensionState.updateState('loggingEnabled', this._settings.get_boolean("show-debug"));
+            });
         }
 
         /***

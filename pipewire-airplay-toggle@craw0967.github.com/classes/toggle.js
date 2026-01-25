@@ -13,15 +13,21 @@ import {
 } from "../constants/config.js";
 
 import { AirPlayToggleMenu } from "./toggleMenu.js";
+import { AirPlayToggleExtensionState } from "./state.js";
 
 /** Class representing a QuickSettings Quick Toggle */
 export const AirPlayToggle = GObject.registerClass(
     class AirPlayToggle extends QuickSettings.QuickMenuToggle {
-        _pipewireInstalled;
+        _extensionObject;
         _raopModuleId;
         _raopModuleInstalled;
         _monitorProcess;
         _duplicateRemovalTimeout;
+
+        _extensionState;
+        get extensionState() {
+            return this._extensionState.getState();
+        }
 
         /**
          * Initialize the AirPlayToggle class.
@@ -35,9 +41,9 @@ export const AirPlayToggle = GObject.registerClass(
             });
             
             this._extensionObject = extensionObject;
-            this._loggingEnabled = this._extensionObject.settings?.get_boolean("show-debug");
+            this._extensionState = AirPlayToggleExtensionState;
 
-            this._menu = new AirPlayToggleMenu(extensionObject, this); 
+            this._menu = new AirPlayToggleMenu(extensionObject, this);
 
             this._setInitialState();
             this._connectToggle();
@@ -52,8 +58,6 @@ export const AirPlayToggle = GObject.registerClass(
             this._menu?.destroy();
             
             this._monitorProcess?.force_exit();
-
-            this._pipewireInstalled = null;
             this._raopModuleId = null;
             this._raopModuleInstalled = null;
             this._monitorProcess = null;
@@ -71,9 +75,10 @@ export const AirPlayToggle = GObject.registerClass(
          * Initialize the state of the toggle by checking if dependencies are available and setting up event monitoring. 
          */ 
         async _setInitialState() {
-            this._supportedAudioServerInstalled = await this._detectAndSetAudioServer();
+            //this._supportedAudioServerInstalled = await this._detectAndSetAudioServer();
+            AirPlayToggleExtensionState.updateState('audioServerInstalled', await this._detectAndSetAudioServer());
 
-            if (this._supportedAudioServerInstalled) {
+            if (this._extensionState.audioServerInstalled) {
                 this._raopModuleInstalled = await this._getRaopModuleId();
 
                 if (this._raopModuleInstalled) {
@@ -96,7 +101,7 @@ export const AirPlayToggle = GObject.registerClass(
 
                     // The _toggleAirPlay method will always set a _raopModuleId value if the module exists.
                     // However, for PulseAudio we want a null vaue when it's unloaded, so set it to null as an initial value
-                    this._raopModuleId = this._currentAudioServer === "pulseaudio" ? null : this._raopModuleId;
+                    this._raopModuleId = null; //this._currentAudioServer === "pulseaudio" ? null : this._raopModuleId;
                 }
 
                 this._monitorModuleEvents();
@@ -109,7 +114,7 @@ export const AirPlayToggle = GObject.registerClass(
          */
         _connectToggle() {
             this.connect("clicked", () => {
-                if (this._supportedAudioServerInstalled && this._raopModuleInstalled) {
+                if (this._extensionState.audioServerInstalled && this._raopModuleInstalled) {
                     this._toggleAirPlay();
                 } else {
                     Main.notify(
@@ -127,9 +132,9 @@ export const AirPlayToggle = GObject.registerClass(
          */
         async _detectAndSetAudioServer() {
             try {
-                const audioServer = await detectAudioServer(this._loggingEnabled);
+                const audioServer = await detectAudioServer();
                 if (audioServer) {
-                    this._currentAudioServer = audioServer;
+                    this._currentAudioServer = 'pulseaudio' //audioServer; //TODO - PipeWire doesn't work the way I thought. Need to implement same logic for both audio servers
                     this._setAudioServer();
 
                     return true;
@@ -137,7 +142,7 @@ export const AirPlayToggle = GObject.registerClass(
 
                 return false;
             } catch (err) {
-                logErr(err, this._loggingEnabled);
+                logErr(err);
                 return false;
             }
         }
@@ -148,13 +153,15 @@ export const AirPlayToggle = GObject.registerClass(
          * If no supported audio server installed, default settings to pipewire.
          */
         _setAudioServer() {
+            this._extensionObject.settings.set_string("audio-server", "pulseaudio");
+            /*
             if(this._currentAudioServer && this._extensionObject.settings.get_string("audio-server") !== this._currentAudioServer) {
                 this._extensionObject.settings.set_string("audio-server", this._currentAudioServer);
                 
             } else if (!this._currentAudioServer) {
                 this._extensionObject.settings.set_string("audio-server", "pipewire");
 
-            }
+            }*/
         }
 
         /***
@@ -169,7 +176,6 @@ export const AirPlayToggle = GObject.registerClass(
                 const commandArray = ["pactl", "list", "modules", "short"];
                 const output = await asyncExecCommandAndReadOutput(
                     commandArray,
-                    this._loggingEnabled,
                     null,
                     null
                 );
@@ -189,7 +195,7 @@ export const AirPlayToggle = GObject.registerClass(
 
                 return moduleLoaded;
             } catch (err) {
-                logErr(err, this._loggingEnabled);
+                logErr(err);
 
                 return false;
             }
@@ -199,6 +205,7 @@ export const AirPlayToggle = GObject.registerClass(
          * Toggles the state of the RAOP (AirPlay) module by loading or unloading it.
          */
         async _toggleAirPlay() {
+            AirPlayToggleExtensionState.updateState('test', this._extensionState.test ? false : true);
             try {
                 const commandArray = [
                     "pactl",
@@ -207,7 +214,6 @@ export const AirPlayToggle = GObject.registerClass(
                 ];
                 let output = await asyncExecCommandAndReadOutput(
                     commandArray,
-                    this._loggingEnabled,
                     null,
                     null
                 );
@@ -223,7 +229,7 @@ export const AirPlayToggle = GObject.registerClass(
                 this._raopModuleInstalled = !this._raopModuleInstalled && this._raopModuleId ? true : this._raopModuleInstalled;
 
             } catch (err) {
-                logErr(err, this._loggingEnabled);
+                logErr(err);
             }
         }
 
@@ -234,10 +240,9 @@ export const AirPlayToggle = GObject.registerClass(
         _monitorModuleEvents() {
             const command = ["pactl", "subscribe"];
             
-            execCommandAndMonitor(this._monitorProcess, command, true, (line) => {
+            execCommandAndMonitor(this._monitorProcess, command, (line) => {
                 // Process the output to determine when a module is loaded or unloaded
                 this._processModuleEvent(line);
-                
             }, null, null);
         }
 
@@ -252,7 +257,7 @@ export const AirPlayToggle = GObject.registerClass(
             switch (this._currentAudioServer) {
                 case "pipewire":
                     if(this._raopModuleId &&
-                        line.includes(this._raopModuleId)
+                        line.includes(this._raopModuleId) //NOTE - pipewire module id's may change if more than one module is loaded or unloaded in different sequences. TODO - need to handle
                     ) {
                         if(line.includes("remove")) {
                             this.checked = false;
@@ -331,7 +336,6 @@ export const AirPlayToggle = GObject.registerClass(
             try {
                 const output = await asyncExecCommandAndReadOutput(
                     command,
-                    this._loggingEnabled,
                     null,
                     null
                 );
@@ -346,8 +350,8 @@ export const AirPlayToggle = GObject.registerClass(
                     }
                     
                 }
-            } catch (error) {
-                logErr(error, this._loggingEnabled);
+            } catch (err) {
+                logErr(err);
             }
         }
 
@@ -452,7 +456,6 @@ export const AirPlayToggle = GObject.registerClass(
             ];
             asyncExecCommandAndReadOutput(
                 command,
-                this._loggingEnabled,
                 null,
                 null
             );

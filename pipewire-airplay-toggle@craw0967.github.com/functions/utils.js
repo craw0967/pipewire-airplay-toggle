@@ -12,18 +12,20 @@ Gio._promisify(
 
 import { logErr } from "./logs.js";
 
+export function composeMixins(base, ...mixins) {
+    return mixins.reduce((cls, mixin) => mixin(cls), base);
+}
+
 /**
  * Detects if PipeWire or PulseAudio is installed and returns which one.
  * 
- * @param {boolean} loggingEnabled - Whether to enable debug logging
  * @returns {Promise<string|null>} "pipewire", "pulseaudio", or null if neither found
  */
-export async function detectAudioServer(loggingEnabled = false) {
+export async function detectAudioServer() {
     try {
         const commandArray = ["pactl", "info"];
         const output = await asyncExecCommandAndReadOutput(
             commandArray,
-            loggingEnabled,
             null,
             null
         );
@@ -43,7 +45,7 @@ export async function detectAudioServer(loggingEnabled = false) {
 
         return null;
     } catch (err) {
-        logErr(err, loggingEnabled);
+        logErr(err);
         return null;
     }
 }
@@ -108,7 +110,7 @@ export function disconnectSettings(extensionObject, settings) {
  * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object
  * @returns {Promise<string[]>} A promise that resolves with an array of strings, each string representing a line in the output.
  */
-export async function asyncExecCommandAndReadOutput(argv, logErrors, input = null, cancellable = null) {
+export async function asyncExecCommandAndReadOutput(argv, input = null, cancellable = null) {
     let cancelId = 0;
     let flags =
         Gio.SubprocessFlags.STDOUT_PIPE |
@@ -147,7 +149,7 @@ export async function asyncExecCommandAndReadOutput(argv, logErrors, input = nul
 
         return output;
     } catch (err) {
-        logErr(err, logErrors);
+        logErr(err);
         return null;
     } finally {
         if (cancelId > 0) cancellable.disconnect(cancelId);
@@ -162,12 +164,11 @@ export async function asyncExecCommandAndReadOutput(argv, logErrors, input = nul
  * 
  * @param {Gio.Subprocess} proc - Object used to store an instance of Gio.Subprocess. Will be initialized if not done in advance
  * @param {string[]} argv - The command line arguments
- * @param {boolean} logErrors - Whether or not to log errors
  * @param {function} outCallback - The callback function to call with each line read from stdout
  * @param {function | null} [inCallback=null] - Optional callback function to write to the process's stdin pipe
  * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object
  */
-export function execCommandAndMonitor(proc, argv, logErrors, outCallback, inCallback = null, cancellable = null) {
+export function execCommandAndMonitor(proc, argv, outCallback, inCallback = null, cancellable = null) {
     let cancelId = 0;
     let flags =
         Gio.SubprocessFlags.STDOUT_PIPE |
@@ -189,9 +190,9 @@ export function execCommandAndMonitor(proc, argv, logErrors, outCallback, inCall
     const stdinStream = inCallback ? proc.get_stdin_pipe() : null;
 
     try {
-        readOutput(stdoutStream, stdinStream, logErrors, outCallback, inCallback);
+        readOutput(stdoutStream, stdinStream, outCallback, inCallback);
     } catch (err) {
-        logErr(err, logErrors);
+        logErr(err);
     } finally {
         if (cancelId > 0) cancellable.disconnect(cancelId);
     }
@@ -202,11 +203,10 @@ export function execCommandAndMonitor(proc, argv, logErrors, outCallback, inCall
  * 
  * @param {Gio.DataInputStream} stdout - The stream to read from
  * @param {Gio.SubprocessStdinPipe | null} stdin - The stream to write to if provided
- * @param {boolean} logErrors - Whether or not to log errors
  * @param {function} outCallback - The callback function to call with each line read from stdout
  * @param {function | null} [inCallback=null] - Optional callback function to write to the process's stdin pipe
  */
-function readOutput(stdout, stdin, logErrors, outCallback, inCallback) {
+function readOutput(stdout, stdin, outCallback, inCallback) {
     stdout.read_line_async(
         GLib.PRIORITY_LOW,
         null,
@@ -223,10 +223,10 @@ function readOutput(stdout, stdin, logErrors, outCallback, inCallback) {
                     }
 
                     // Continue reading from the stream
-                    readOutput(stdout, stdin, logErrors, outCallback, inCallback);
+                    readOutput(stdout, stdin, outCallback, inCallback);
                 }
             } catch (err) {
-                logErr(err, logErrors);
+                logErr(err);
             }
         }
     );
