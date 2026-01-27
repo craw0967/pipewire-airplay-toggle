@@ -20,7 +20,7 @@ import { logErr } from "./logs.js";
  */
 export async function detectAudioServer(loggingEnabled = false) {
     try {
-        const commandArray = ["pactl", "info"];
+        const commandArray = ["LC_ALL=C", "pactl", "info"];
         const output = await asyncExecCommandAndReadOutput(
             commandArray,
             loggingEnabled,
