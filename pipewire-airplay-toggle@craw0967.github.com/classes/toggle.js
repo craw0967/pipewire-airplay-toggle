@@ -84,8 +84,8 @@ export const AirPlayToggle = GObject.registerClass(
                     this.checked = false;
 
                     // The _toggleAirPlay method will always set a _raopModuleId value if the module exists.
-                    // However, for PulseAudio we want a null vaue when it's unloaded, so set it to null as an initial value
-                    this._raopModuleId = this._currentAudioServer === "pulseaudio" ? null : this._raopModuleId;
+                    // However, we want a null vaue when the module is unloaded, so set it to null as an initial value
+                    this._raopModuleId = null;
                 }
 
                 this._monitorModuleEvents();
@@ -238,63 +238,45 @@ export const AirPlayToggle = GObject.registerClass(
          * @param {string} line - The line of output from the PipeWire and/or PulseAudio module event monitoring process.
          */
         async _processModuleEvent(line) {
-            switch (this._currentAudioServer) {
-                case "pipewire":
+            if(line.includes("module")) {
+                // State 1: We know the module ID, watch for its removal
+                if (this._raopModuleId && line.includes(this._raopModuleId) && line.includes("remove")) {
+                    this._raopModuleId = null;
+                    this.checked = false;
+                
+                // State 2: New module loaded, check if it's the one we want
+                } else {
+                    // Module ID not known - check to see if it loaded. Sometimes _toggleAirplay sets the module ID before we get here, sometimes not.
+                    if(!this._raopModuleId && line.includes("new")) {
+                        await this._getRaopModuleId();
+                    }
+
+                    // Module ID is known
                     if(this._raopModuleId &&
-                        line.includes(this._raopModuleId)
-                    ) {
-                        if(line.includes("remove")) {
-                            this.checked = false;
-                        }
-                        if(line.includes("new")){
-                            this.checked = true;
-                        }
+                        line.includes(this._raopModuleId) 
+                    ){
+                        this.checked = true;
                     }
-                    break;
-                case "pulseaudio":
-                    if(line.includes("module")) {
-                        // State 1: We know the module ID, watch for its removal
-                        if (this._raopModuleId && line.includes(this._raopModuleId) && line.includes("remove")) {
-                            this._raopModuleId = null;
-                            this.checked = false;
-                        
-                        // State 2: New module loaded, check if it's the one we want
-                        } else {
-                            // Module ID not known - check to see if it loaded. Sometimes _toggleAirplay sets the module ID before we get here, sometimes not.
-                            if(!this._raopModuleId && line.includes("new")) {
-                                await this._getRaopModuleId();
-                            }
+                }
+            }
 
-                            // Module ID is known
-                            if(this._raopModuleId &&
-                                line.includes(this._raopModuleId) 
-                            ){
-                                this.checked = true;
-                            }
-                        }
-                    }
-
-                    // Handle sink events - debounce duplicate removal
-                    // Since these events are all async and we don't know when the new AirPlay sinks finish loading
-                    // we need to wait a short period of time after the last event to ensure they have finished loading
-                    if (this.checked && line.includes("sink") && line.includes("new")) {
-                        // Clear existing timeout and restart the timer
-                        if (this._duplicateRemovalTimeout) {
-                            clearTimeout(this._duplicateRemovalTimeout);
-                        }
-                        
-                        // Wait for sink events to settle (200ms after the LAST sink event)
-                        this._duplicateRemovalTimeout = setTimeout(() => {
-                            this._removeDuplicateRaopSinks();
-                            this._duplicateRemovalTimeout = null;
-                        }, 200);
+            if(this._currentAudioServer === "pulseaudio") {
+                // Handle sink events - debounce duplicate removal
+                // Since these events are all async and we don't know when the new AirPlay sinks finish loading
+                // we need to wait a short period of time after the last event to ensure they have finished loading
+                if (this.checked && line.includes("sink") && line.includes("new")) {
+                    // Clear existing timeout and restart the timer
+                    if (this._duplicateRemovalTimeout) {
+                        clearTimeout(this._duplicateRemovalTimeout);
                     }
                     
-                    break;
-                default:
-                    break;
+                    // Wait for sink events to settle (200ms after the LAST sink event)
+                    this._duplicateRemovalTimeout = setTimeout(() => {
+                        this._removeDuplicateRaopSinks();
+                        this._duplicateRemovalTimeout = null;
+                    }, 200);
+                }
             }
-            
         }
 
         /***
