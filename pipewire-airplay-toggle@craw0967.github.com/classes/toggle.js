@@ -155,7 +155,12 @@ export const AirPlayToggle = GObject.registerClass(
             try {
                 let moduleLoaded = false;
 
-                const commandArray = ["LC_ALL=C", "pactl", "list", "modules", "short"];
+                const commandArray = [
+                    "pactl", 
+                    "list", 
+                    "modules", 
+                    "short"
+                ];
                 const output = await asyncExecCommandAndReadOutput(
                     commandArray,
                     this._loggingEnabled,
@@ -190,7 +195,6 @@ export const AirPlayToggle = GObject.registerClass(
         async _toggleAirPlay() {
             try {
                 const commandArray = [
-                    "LC_ALL=C", 
                     "pactl",
                     this.checked ? "unload-module" : "load-module",
                     "module-raop-discover",
@@ -222,7 +226,10 @@ export const AirPlayToggle = GObject.registerClass(
          * determine when the RAOP module is loaded or unloaded.
          */
         _monitorModuleEvents() {
-            const command = ["LC_ALL=C", "pactl", "subscribe"];
+            const command = [
+                "pactl", 
+                "subscribe"
+            ];
             
             execCommandAndMonitor(this._monitorProcess, command, true, (line) => {
                 // Process the output to determine when a module is loaded or unloaded
@@ -295,7 +302,7 @@ export const AirPlayToggle = GObject.registerClass(
             // However I've noticed some issues with JSON output being malformed due to invalid characters
             // Is it better to have possible parsing errors if the text output changes or risk possible JSON parsing errors if it arrives malformed?
             const command = [
-                "LC_ALL=C", 
+                // 
                 "pactl",
                 "list",
                 "sinks"
@@ -419,7 +426,6 @@ export const AirPlayToggle = GObject.registerClass(
          */
         async _asyncExecCommandAndUnloadModule(moduleId) {
             const command = [
-                "LC_ALL=C", 
                 "pactl",
                 "unload-module",
                 moduleId

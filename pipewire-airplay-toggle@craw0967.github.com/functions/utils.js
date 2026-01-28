@@ -20,7 +20,10 @@ import { logErr } from "./logs.js";
  */
 export async function detectAudioServer(loggingEnabled = false) {
     try {
-        const commandArray = ["LC_ALL=C", "pactl", "info"];
+        const commandArray = [
+            "pactl", 
+            "info"
+        ];
         const output = await asyncExecCommandAndReadOutput(
             commandArray,
             loggingEnabled,
@@ -110,42 +113,51 @@ export function disconnectSettings(extensionObject, settings) {
  */
 export async function asyncExecCommandAndReadOutput(argv, logErrors, input = null, cancellable = null) {
     let cancelId = 0;
-    let flags =
-        Gio.SubprocessFlags.STDOUT_PIPE |
-        Gio.SubprocessFlags.STDERR_PIPE;
+    let flags = Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE;
 
     if (input !== null) flags |= Gio.SubprocessFlags.STDIN_PIPE;
 
-    const proc = new Gio.Subprocess({ argv, flags });
-    proc.init(cancellable);
+    // 1. Setup the Launcher
+    const launcher = new Gio.SubprocessLauncher({ flags });
+    launcher.setenv('LC_ALL', 'C', true);
 
-    if (cancellable instanceof Gio.Cancellable)
-        cancelId = cancellable.connect(() => proc.force_exit());
+    let subprocess;
+    try {
+        // 2. Spawn the actual subprocess
+        subprocess = launcher.spawnv(argv);
+    } catch (err) {
+        logErr(err, logErrors);
+        return null;
+    }
+
+    // 3. Connect cancellation to the subprocess, not the launcher
+    if (cancellable instanceof Gio.Cancellable) {
+        cancelId = cancellable.connect(() => subprocess.force_exit());
+    }
 
     try {
-        const [stdout, stderr] = await proc.communicate_utf8_async(
+        // 4. Call communicate on the subprocess instance
+        const [stdout, stderr] = await subprocess.communicate_utf8_async(
             input,
-            null
+            cancellable // Pass the cancellable directly to the async call
         );
-        const status = proc.get_exit_status();
+        
+        const status = subprocess.get_exit_status();
 
         if (status !== 0) {
             throw new Gio.IOErrorEnum({
                 code: Gio.IOErrorEnum.FAILED,
                 message: stderr
                     ? stderr.trim()
-                    : `Command '${argv}' failed with exit code ${status}`,
+                    : `Command '${argv.join(' ')}' failed with exit code ${status}`,
             });
         }
 
-        const out = stdout ? stdout.trim() : stdout;
+        if (!stdout) return [];
 
-        const output =
-            out && out instanceof Uint8Array
-                ? new TextDecoder().decode(out).split("\n")
-                : out.toString().split("\n");
-
-        return output;
+        // communicate_utf8_async returns a string, so TextDecoder is unnecessary
+        return stdout.trim().split("\n");
+        
     } catch (err) {
         logErr(err, logErrors);
         return null;
@@ -153,6 +165,7 @@ export async function asyncExecCommandAndReadOutput(argv, logErrors, input = nul
         if (cancelId > 0) cancellable.disconnect(cancelId);
     }
 }
+
 
 /**
  * Execute a command and monitor the process's stdout streams.
@@ -169,24 +182,36 @@ export async function asyncExecCommandAndReadOutput(argv, logErrors, input = nul
  */
 export function execCommandAndMonitor(proc, argv, logErrors, outCallback, inCallback = null, cancellable = null) {
     let cancelId = 0;
-    let flags =
-        Gio.SubprocessFlags.STDOUT_PIPE |
-        Gio.SubprocessFlags.STDERR_PIPE;
+    let flags = Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE;
 
     if (inCallback !== null) flags |= Gio.SubprocessFlags.STDIN_PIPE;
 
-    proc = proc ? proc : new Gio.Subprocess({ argv, flags });
-    proc.init(cancellable);
+    // 1. Create the Launcher and configure environment
+    const launcher = new Gio.SubprocessLauncher({ flags });
+    launcher.setenv('LC_ALL', 'C', true); // Third param 'true' allows overwriting
 
-    if (cancellable instanceof Gio.Cancellable)
-        cancelId = cancellable.connect(() => proc.force_exit());
+    let subprocess;
+    try {
+        // 2. Spawn the actual subprocess using the launcher
+        subprocess = launcher.spawnv(argv);
+    } catch (err) {
+        logErr(err, logErrors);
+        return;
+    }
 
-    const stdout = proc.get_stdout_pipe();
+    // 3. Connect cancellation to the actual subprocess
+    if (cancellable instanceof Gio.Cancellable) {
+        cancelId = cancellable.connect(() => subprocess.force_exit());
+    }
+
+    // 4. Get pipes from the SUBPROCESS, not the launcher
+    const stdout = subprocess.get_stdout_pipe();
     const stdoutStream = new Gio.DataInputStream({
         base_stream: stdout,
         close_base_stream: true,
     });
-    const stdinStream = inCallback ? proc.get_stdin_pipe() : null;
+    
+    const stdinStream = inCallback ? subprocess.get_stdin_pipe() : null;
 
     try {
         readOutput(stdoutStream, stdinStream, logErrors, outCallback, inCallback);
