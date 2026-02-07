@@ -100,16 +100,18 @@ export function disconnectSettings(extensionObject, settings) {
 }
 
 /**
- * Execute a command asynchronously and return the output from `stdout` on success.
- * Throws, catches, and logs output from `stderr` on failure
- * 
+ * Executes a command asynchronously.
+ * On success, returns the output from `stdout` as an array of strings.
+ * On failure, it logs the error (if `logErrors` is true) and returns `null`.
+ *
  * If given, @input will be passed to `stdin` and @cancellable can be used to
  * stop the process before it finishes.
- * 
- * @param {string[]} argv - A list of string arguments
- * @param {string | null} [input=null] - Input to write to `stdin` or null to ignore
- * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object
- * @returns {Promise<string[]>} A promise that resolves with an array of strings, each string representing a line in the output.
+ *
+ * @param {string[]} argv - A list of string arguments for the command.
+ * @param {boolean} logErrors - Whether to log errors to the console.
+ * @param {string | null} [input=null] - Input to write to `stdin` or `null` to ignore.
+ * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object to stop the process.
+ * @returns {Promise<string[] | null>} A promise that resolves with an array of strings (lines from stdout), or `null` on error.
  */
 export async function asyncExecCommandAndReadOutput(argv, logErrors, input = null, cancellable = null) {
     let cancelId = 0;
@@ -167,6 +169,12 @@ export async function asyncExecCommandAndReadOutput(argv, logErrors, input = nul
 }
 
 
+// TODO - Cleanup 'proc' object reference and functions that call this function
+// I can't fully recall when I implemented that feature. It was clearly intended to be a way to reference processes for cleanup when the extension is unloaded
+// But it doesn't appear to have been properly implemented by calling functions.
+// Future state should consider how to do the proper cleanup before release. May just get rejected in code review if process is not cleaned up.
+// For now I renamed proc -> subprocess
+// TODO - Update JSDoc comment to reflect updated function
 /**
  * Execute a command and monitor the process's stdout streams.
  * 
@@ -180,7 +188,7 @@ export async function asyncExecCommandAndReadOutput(argv, logErrors, input = nul
  * @param {function | null} [inCallback=null] - Optional callback function to write to the process's stdin pipe
  * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object
  */
-export function execCommandAndMonitor(proc, argv, logErrors, outCallback, inCallback = null, cancellable = null) {
+export function execCommandAndMonitor(subprocess, argv, logErrors, outCallback, inCallback = null, cancellable = null) {
     let cancelId = 0;
     let flags = Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE;
 
@@ -190,10 +198,10 @@ export function execCommandAndMonitor(proc, argv, logErrors, outCallback, inCall
     const launcher = new Gio.SubprocessLauncher({ flags });
     launcher.setenv('LC_ALL', 'C', true); // Third param 'true' allows overwriting
 
-    let subprocess;
+    //let subprocess;
     try {
         // 2. Spawn the actual subprocess using the launcher
-        subprocess = launcher.spawnv(argv);
+        subprocess = subprocess ? subprocess : launcher.spawnv(argv);
     } catch (err) {
         logErr(err, logErrors);
         return;
