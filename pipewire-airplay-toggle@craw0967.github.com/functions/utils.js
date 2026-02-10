@@ -1,5 +1,6 @@
 import GLib from "gi://GLib";
 import Gio from "gi://Gio";
+
 Gio._promisify(
     Gio.Subprocess.prototype,
     "communicate_utf8_async"
@@ -14,6 +15,13 @@ import { AirPlayToggleExtensionState as State } from "../state/state.js";
 
 import { logErr } from "./logs.js";
 
+/**
+ * Applies a series of mixins to a base class.
+ *
+ * @param {Function} base - The base class to which mixins will be applied.
+ * @param {...Function} mixins - The mixin functions to apply.
+ * @returns {Function} A new class with all mixins applied.
+ */
 export function composeMixins(base, ...mixins) {
     return mixins.reduce((cls, mixin) => mixin(cls), base);
 }
@@ -56,17 +64,17 @@ export async function detectAudioServer() {
 }
 
 /**
- * Executes a command asynchronously.
- * On success, returns the output from `stdout` as an array of strings.
- * On failure, it logs the error and returns `null`.
+ * Executes a command asynchronously and returns its stdout.
  *
- * If given, @input will be passed to `stdin` and @cancellable can be used to
- * stop the process before it finishes.
+ * This function spawns a subprocess and waits for it to complete. On success,
+ * it returns the output from `stdout` as an array of strings. On failure, it
+ * logs the error and returns `null`.
  *
  * @param {string[]} argv - A list of string arguments for the command.
- * @param {string | null} [input=null] - Input to write to `stdin` or `null` to ignore.
- * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object to stop the process.
- * @returns {Promise<string[] | null>} A promise that resolves with an array of strings (lines from stdout), or `null` on error.
+ * @param {string|null} [input=null] - Optional string to write to the process's `stdin`.
+ * @param {Gio.Cancellable|null} [cancellable=null] - Optional cancellable to terminate the process.
+ * @returns {Promise<string[]|null>} A promise that resolves with an array of
+ *   strings from stdout (or an empty array if no output), or `null` on error.
  */
 export async function asyncExecCommandAndReadOutput(argv, input = null, cancellable = null) {
     let cancelId = 0;
@@ -123,26 +131,19 @@ export async function asyncExecCommandAndReadOutput(argv, input = null, cancella
     }
 }
 
-
-// TODO - Cleanup 'proc' object reference and functions that call this function
-// I can't fully recall when I implemented that feature. It was clearly intended to be a way to reference processes for cleanup when the extension is unloaded
-// But it doesn't appear to have been properly implemented by calling functions.
-// Future state should consider how to do the proper cleanup before release. May just get rejected in code review if process is not cleaned up.
-// For now I renamed proc -> subprocess
-// TODO - Update JSDoc comment to reflect updated function
 /**
- * Execute a command and monitor the process's stdout streams.
- * 
- * This function is intended to be used with external processes that run continuously and output data
- * https://gjs.guide/guides/gio/subprocesses.html#communicating-with-processes
- * 
- * @param {Gio.Subprocess} proc - Object used to store an instance of Gio.Subprocess. Will be initialized if not done in advance
- * @param {string[]} argv - The command line arguments
- * @param {function} outCallback - The callback function to call with each line read from stdout
- * @param {function | null} [inCallback=null] - Optional callback function to write to the process's stdin pipe
- * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object
+ * Executes a command and monitors its stdout stream for continuous output.
+ *
+ * This is for long-running processes that continuously produce output.
+ * See: https://gjs.guide/guides/gio/subprocesses.html#communicating-with-processes
+ *
+ * @param {Gio.Subprocess|null} subproc - An existing subprocess to use, or null to spawn a new one.
+ * @param {string[]} argv - The command and arguments to execute.
+ * @param {function(string): void} outCallback - Callback invoked for each line of output from stdout.
+ * @param {function(Gio.OutputStream): void|null} [inCallback=null] - Optional callback to write to the process's stdin pipe.
+ * @param {Gio.Cancellable|null} [cancellable=null] - Optional cancellable to terminate the process.
  */
-export function execCommandAndMonitor(subprocess, argv, outCallback, inCallback = null, cancellable = null) {
+export function execCommandAndMonitor(subproc, argv, outCallback, inCallback = null, cancellable = null) {
     let cancelId = 0;
     let flags = Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE;
 
@@ -152,10 +153,10 @@ export function execCommandAndMonitor(subprocess, argv, outCallback, inCallback 
     const launcher = new Gio.SubprocessLauncher({ flags });
     launcher.setenv('LC_ALL', 'C', true); // Third param 'true' allows overwriting
 
-    //let subprocess;
+    let subprocess;
     try {
         // 2. Spawn the actual subprocess using the launcher
-        subprocess = subprocess ? subprocess : launcher.spawnv(argv);
+        subprocess = subproc ? subproc : launcher.spawnv(argv);
         State.addProcess(subprocess);
     } catch (err) {
         logErr(err);
@@ -185,13 +186,17 @@ export function execCommandAndMonitor(subprocess, argv, outCallback, inCallback 
     }
 }
 
-/***
- * Recursively reads from a Gio.DataInputStream and calls the provided callback function with each line.
- * 
- * @param {Gio.DataInputStream} stdout - The stream to read from
- * @param {Gio.SubprocessStdinPipe | null} stdin - The stream to write to if provided
- * @param {function} outCallback - The callback function to call with each line read from stdout
- * @param {function | null} [inCallback=null] - Optional callback function to write to the process's stdin pipe
+/**
+ * Recursively reads lines from a stream and invokes callbacks.
+ *
+ * This is a helper for `execCommandAndMonitor` to continuously process
+ * stdout from a long-running process.
+ *
+ * @private
+ * @param {Gio.DataInputStream} stdout - The input stream to read from (process stdout).
+ * @param {Gio.OutputStream|null} stdin - The output stream to write to (process stdin).
+ * @param {function(string): void} outCallback - Callback for each line read from stdout.
+ * @param {function(Gio.OutputStream): void|null} inCallback - Callback to write to stdin.
  */
 function readOutput(stdout, stdin, outCallback, inCallback) {
     stdout.read_line_async(

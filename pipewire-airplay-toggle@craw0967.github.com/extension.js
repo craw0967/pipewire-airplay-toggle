@@ -16,32 +16,22 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
 import { AirPlayIndicator } from "./classes/indicator.js";
-import { AirPlayToggle } from "./classes/toggle.js";
-
 import { AirPlayToggleExtensionState as State } from "./state/state.js";
 
 export default class PipeWireAirPlayToggleExtension extends Extension {
     enable() {
         State.setExtensionObject(this);
         
-        this.toggle = new AirPlayToggle(this)
-        this.indicator = new AirPlayIndicator();
-        this.indicator.quickSettingsItems.push(this.toggle);
-
-        Main.panel.statusArea.quickSettings.addExternalIndicator(
-            this.indicator
-        );
+        this._indicator = new AirPlayIndicator();
     }
 
     disable() {
         // https://gjs.guide/extensions/review-guidelines/review-guidelines.html#destroy-all-objects
-        // this.toggle.destroy() will get called and this.toggle will get set to null by this.indicator.destroy()
-        this.indicator?.destroy();
-        this.indicator = null;
+        this._indicator?.destroy();
+        this._indicator = null;
 
         State.destroy();
     }

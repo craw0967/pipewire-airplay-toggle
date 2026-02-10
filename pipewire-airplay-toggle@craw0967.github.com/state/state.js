@@ -19,7 +19,7 @@ const StateData = {
 /* Class representing and managing the State of the Extension */
 const State = GObject.registerClass({
     Signals: {
-        'pipwire-airplay-toggle-state-changed': {
+        'pipewire-airplay-toggle-state-changed': {
             param_types: [GObject.TYPE_BOOLEAN], // Define the argument types
         },
     }
@@ -80,13 +80,13 @@ const State = GObject.registerClass({
     }
 
     // Private method to notify child components
-    #fireStateUpdateNotifyEvent() {
-        // Emit the signal with the updated state data
-        this.emit('pipwire-airplay-toggle-state-changed', true);
+    #fireStateUpdateNotifyEvent(key) {
+        // Emit an event signal with the updated key name
+        this.emit('pipewire-airplay-toggle-state-changed', key);
     }
 
-    // This is for the state management classes only.  We shouldn't be modifying the state directly
-    get State() {
+    // This is for the state management classes only.  Don't modify the state directly
+    get _State() {
         return this.#data;
     }
 
@@ -98,7 +98,7 @@ const State = GObject.registerClass({
     updateStateKey(key, value) {
         this.#updateStateKey(key, value);
         // Notify child components that the state has been updated
-        this.#fireStateUpdateNotifyEvent();
+        this.#fireStateUpdateNotifyEvent(key);
     }
 
     /* *******
@@ -112,8 +112,8 @@ const State = GObject.registerClass({
         }
     }
 
-    // This is for the SettingsMixin only. We shouldn't be modifying the settings directly.
-    get Settings() {
+    // This is for the SettingsMixin only. Don't modify the settings directly.
+    get _Settings() {
         return this.#settings;
     }
 

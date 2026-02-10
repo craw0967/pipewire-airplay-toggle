@@ -1,7 +1,7 @@
 import { AirPlayToggleExtensionState as State } from "../state/state.js";
 
 /**
- * Logs the given error message to the console if 'enabled' is true.
+ * Logs the given error message to the console if 'show-debug' setting is enabled.
  * 
  * @param {Error} err - The error to be logged.
  * @param {boolean} [enabled=true] - Whether or not to log the error.
@@ -13,7 +13,7 @@ export const logErr = function logErr(err) {
 };
 
 /**
- * Logs the given warning message to the console if 'enabled' is true.
+ * Logs the given warning message to the console if 'show-debug' setting is enabled.
  * 
  * @param {string} msg - The message to be logged.
  * @param {boolean} [enabled=true] - Whether or not to log the message.
@@ -25,7 +25,7 @@ export const logWarn = function logWarn(msg) {
 };
 
 /**
- * Logs the given message to the console if 'enabled' is true.
+ * Logs the given message to the console if 'show-debug' setting is enabled.
  * 
  * @param {string} msg - The message to be logged.
  * @param {boolean} [enabled=true] - Whether or not to log the message.

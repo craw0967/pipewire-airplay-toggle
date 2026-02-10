@@ -10,12 +10,12 @@ export const SettingsMixin = (Base) => class extends Base {
     }
 
     connectSetting(key, callback) {
-        if (!this.Settings) {
+        if (!this._Settings) {
             throw new Error("Extension settings not defined");
         };
 
         try {
-            const id = this.Settings.connect(`changed::${key}`, callback);
+            const id = this._Settings.connect(`changed::${key}`, callback);
             this.#settingsHandlers.push(id);
 
             return id;
@@ -28,12 +28,12 @@ export const SettingsMixin = (Base) => class extends Base {
     }
 
     bindSetting(key, obj, property, flags) {
-        if (!this.Settings) {
+        if (!this._Settings) {
             throw new Error("Extension settings not defined");
         };
 
         try {
-            const id = this.Settings.bind(key, obj, property, flags);
+            const id = this._Settings.bind(key, obj, property, flags);
             this.#settingsHandlers.push(id);
 
             return id;
@@ -46,10 +46,10 @@ export const SettingsMixin = (Base) => class extends Base {
 
     // Disconnect any settings signals
     _disconnectAllSettings() {
-        if (this.Settings) {
+        if (this._Settings) {
             try {
                 for (const id of this.#settingsHandlers) {
-                    this.Settings.disconnect(id);
+                    this._Settings.disconnect(id);
                 } 
             } catch (e) {
                 logErr(e);

@@ -22,7 +22,7 @@ export const SignalHandlerMixin = (Base) => class extends Base {
         return null;
     }
 
-    disconnectAllSignals() {
+    _disconnectAllSignals() {
         for (const [obj, id] of this.#signalHandlers) {
             try {
                 obj.disconnect(id);

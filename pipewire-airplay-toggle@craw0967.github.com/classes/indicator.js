@@ -1,3 +1,5 @@
+import * as Main from "resource:///org/gnome/shell/ui/main.js";
+
 import GObject from "gi://GObject";
 import Gio from "gi://Gio";
 
@@ -5,6 +7,8 @@ import * as QuickSettings from "resource:///org/gnome/shell/ui/quickSettings.js"
 import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
 
 import { INDICATOR_ICON_MAP } from "../constants/config.js";
+
+import { AirPlayToggle } from "./toggle.js";
 
 import { AirPlayToggleExtensionState as State } from "../state/state.js";
 
@@ -16,10 +20,18 @@ export const AirPlayIndicator = GObject.registerClass(
 
             this._indicator = this._addIndicator();
 
+            this._toggle = new AirPlayToggle();
+
             this._setIndicatorIcon();
             this._setIndicatorIconVisibility();
 
             this._connectSettings();
+
+            this.quickSettingsItems.push(this._toggle);
+
+            Main.panel.statusArea.quickSettings.addExternalIndicator(
+                this
+            );
         }
 
         /**
@@ -32,6 +44,7 @@ export const AirPlayIndicator = GObject.registerClass(
                 this._binding = null;
             }
 
+            // This will destroy this._toggle
             this.quickSettingsItems?.forEach((item) => {
                 item.destroy();
                 item = null;
@@ -67,21 +80,21 @@ export const AirPlayIndicator = GObject.registerClass(
             return icon;
         };
 
-        /**
+        /***
          * Updates the icon of the indicator and the toggle switch.
          */
         _setIndicatorIcon() {
             this._indicator.gicon = this._getIcon();
-            State.getExtensionObject().toggle.gicon = this._getIcon();
+            this._toggle.gicon = this._getIcon();
         }
 
-        /**
+        /***
          * Sets the visibility of the indicator icon based on extension settings.
          */
         _setIndicatorIconVisibility() {
             if (State.getSettingsKey("get_boolean", "show-indicator") === true) {
                 if (!this._binding) {
-                    this._binding = State.getExtensionObject().toggle.bind_property(
+                    this._binding = this._toggle.bind_property(
                         "checked",
                         this._indicator,
                         "visible",
