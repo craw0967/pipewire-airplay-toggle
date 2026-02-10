@@ -1,4 +1,4 @@
-/* pipewire-airplay-toggle Version 8
+/* pipewire-airplay-toggle
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,36 +16,35 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
-import { connectSettings, disconnectSettings } from "./functions/utils.js";
 import { AirPlayIndicator } from "./classes/indicator.js";
-import { AirPlayToggle } from "./classes/toggle.js";
+import { AirPlayToggleExtensionState as State } from "./state/state.js";
 
+/**
+ * The main class for the PipeWire AirPlay Toggle extension.
+ * @extends Extension
+ */
 export default class PipeWireAirPlayToggleExtension extends Extension {
+    /**
+     * Enables the extension.
+     * This is called when the extension is initialized.
+     */
     enable() {
-        this.settings = this.getSettings();
-
-        this.toggle = new AirPlayToggle(this)
-        this.indicator = new AirPlayIndicator(this);
-        this.indicator.quickSettingsItems.push(this.toggle);
-
-        connectSettings(this, this.settings);
-
-        Main.panel.statusArea.quickSettings.addExternalIndicator(
-            this.indicator
-        );
+        State.setExtensionObject(this);
+        
+        this._indicator = new AirPlayIndicator();
     }
 
+    /**
+     * Disables the extension.
+     * This is called when the extension is disabled or uninstalled.
+     */
     disable() {
         // https://gjs.guide/extensions/review-guidelines/review-guidelines.html#destroy-all-objects
+        this._indicator?.destroy();
+        this._indicator = null;
 
-        // this.toggle.destroy() will get called and this.toggle will get set to null by this.indicator.destroy()
-        this.indicator?.destroy();
-        this.indicator = null;
-
-        disconnectSettings(this, this.settings);
-        this.settings = null;
+        State.destroy();
     }
 }
