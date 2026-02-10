@@ -21,6 +21,7 @@ import { AirPlayToggleExtensionState as State } from "../state/state.js";
 export const AirPlayToggle = GObject.registerClass(
     class AirPlayToggle extends QuickSettings.QuickToggle {
         _duplicateRemovalTimeout;
+        _getRaopModuleIdPromise;
 
         /**
          * @constructor
@@ -41,6 +42,7 @@ export const AirPlayToggle = GObject.registerClass(
          */
         destroy() {
             this._duplicateRemovalTimeout = null;
+            this._getRaopModuleIdPromise = null;
 
             super.destroy();
         }
@@ -135,9 +137,28 @@ export const AirPlayToggle = GObject.registerClass(
 
         /**
          * Tries to get the ID of the RAOP (AirPlay) module and stores it in the state.
+         * This method uses a promise-based guard (`_getRaopModuleIdPromise`) to prevent race conditions and multiple instances of the promise.
+         * If called while a request is already in flight, it returns the existing promise instead of starting a new request.
          * @private
+         * @returns {Promise<void>} A promise that resolves when the operation is complete.
          */
         async _getRaopModuleId() {
+            if (!this._getRaopModuleIdPromise) {
+                this._getRaopModuleIdPromise = this._raopModuleIdPromise();
+            } 
+
+            return this._getRaopModuleIdPromise;
+        }
+
+        /**
+         * The core logic for retrieving the RAOP module ID.
+         * It executes a `pactl` command to list modules, finds the `module-raop-discover` module,
+         * and updates the application state with the found module ID.
+         * The `_getRaopModuleIdPromise` is reset to `null` in the `finally` block to allow subsequent calls.
+         * @private
+         * @returns {Promise<void>} A promise that resolves when the module ID has been retrieved and state updated.
+         */
+        async _raopModuleIdPromise() {
             try {
                 const commandArray = [
                     "pactl", 
@@ -156,7 +177,7 @@ export const AirPlayToggle = GObject.registerClass(
                         line.includes("module-raop-discover")
                     );
 
-                    if (filtered && filtered.length > 0 && filtered[0]) {
+                    if (filtered?.length > 0 && filtered[0]) {
                         State.updateStateKey("raopModuleId", filtered[0].split("\t")[0]);
                     } else {
                         State.updateStateKey("raopModuleId", null);
@@ -165,6 +186,8 @@ export const AirPlayToggle = GObject.registerClass(
 
             } catch (err) {
                 logErr(err);
+            } finally {
+                this._getRaopModuleIdPromise = null;
             }
         }
 
@@ -179,7 +202,7 @@ export const AirPlayToggle = GObject.registerClass(
                     this.checked ? "unload-module" : "load-module",
                     "module-raop-discover",
                 ];
-                let output = await asyncExecCommandAndReadOutput(
+                const output = await asyncExecCommandAndReadOutput(
                     commandArray,
                     null,
                     null
@@ -205,16 +228,21 @@ export const AirPlayToggle = GObject.registerClass(
          * @private
          */
         _monitorModuleEvents() {
-            const command = [
-                "pactl", 
-                "subscribe"
-            ];
-            
-            execCommandAndMonitor(null, command, (line) => {
-                // Process the output to determine when a module is loaded or unloaded
-                this._processModuleEvent(line);
+            try {
+                const command = [
+                    "pactl", 
+                    "subscribe"
+                ];
                 
-            }, null, null);
+                execCommandAndMonitor(null, command, (line) => {
+                    // Process the output to determine when a module is loaded or unloaded
+                    this._processModuleEvent(line);
+                    
+                }, null, null);
+            } catch (err) {
+                logErr(err);
+            }
+            
         }
 
         /**
@@ -402,16 +430,20 @@ export const AirPlayToggle = GObject.registerClass(
          * @param {string} moduleId - The ID of the module to unload
          */
         async _asyncExecCommandAndUnloadModule(moduleId) {
-            const command = [
-                "pactl",
-                "unload-module",
-                moduleId
-            ];
-            asyncExecCommandAndReadOutput(
-                command,
-                null,
-                null
-            );
+            try {
+                const command = [
+                    "pactl",
+                    "unload-module",
+                    moduleId
+                ];
+                asyncExecCommandAndReadOutput(
+                    command,
+                    null,
+                    null
+                );
+            } catch (err) {
+                logErr(err);
+            }
         }
     }
 );

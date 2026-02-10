@@ -55,7 +55,7 @@ package_extension() {
 }
 
 compile_gschema() {
-    local_directory="/home/$USER/.local/share/gnome-shell/extensions/pipewire-airplay-toggle@craw0967.github.com/schemas/"
+    local_directory="$HOME/.local/share/gnome-shell/extensions/pipewire-airplay-toggle@craw0967.github.com/schemas/"
     global_directory="/usr/share/gnome-shell/extensions/pipewire-airplay-toggle@craw0967.github.com/schemas/"
 
     if [ -d "$local_directory" ]; then
