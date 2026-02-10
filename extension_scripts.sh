@@ -44,6 +44,7 @@ package_extension() {
         --extra-source=functions \
         --extra-source=icons \
         --extra-source=classes \
+        --extra-source=state \
         --extra-source=../LICENSE
 
     echo "Extension packaged successfully."
