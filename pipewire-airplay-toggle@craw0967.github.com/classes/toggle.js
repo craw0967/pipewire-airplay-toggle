@@ -12,28 +12,21 @@ import {
     PW_MISSING_BODY
 } from "../constants/config.js";
 
+import { AirPlayToggleExtensionState as State } from "../state/state.js";
+
 /** Class representing a QuickSettings Quick Toggle */
 export const AirPlayToggle = GObject.registerClass(
     class AirPlayToggle extends QuickSettings.QuickToggle {
         _pipewireInstalled;
         _raopModuleId;
         _raopModuleInstalled;
-        _monitorProcess;
         _duplicateRemovalTimeout;
 
-        /**
-         * Initialize the AirPlayToggle class.
-         * 
-         * @param {Extension} extensionObject - An instance of the default extension class.
-         */
-        constructor(extensionObject) {
+        constructor() {
             super({
                 title: _(INDICATOR_TEXT),
                 toggleMode: false,
             });
-            
-            this._extensionObject = extensionObject;
-            this._loggingEnabled = this._extensionObject.settings?.get_boolean("show-debug");
 
             this._setInitialState();
             this._connectToggle();
@@ -45,12 +38,9 @@ export const AirPlayToggle = GObject.registerClass(
          * This should be called when the extension is being disabled or unloaded.
          */
         destroy() {
-            this._monitorProcess?.force_exit();
-
             this._pipewireInstalled = null;
             this._raopModuleId = null;
             this._raopModuleInstalled = null;
-            this._monitorProcess = null;
             this._duplicateRemovalTimeout = null;
 
             super.destroy();
@@ -97,7 +87,7 @@ export const AirPlayToggle = GObject.registerClass(
          * When clicked, the toggle button will attempt to toggle the RAOP (AirPlay) module.
          */
         _connectToggle() {
-            this.connect("clicked", () => {
+            State.connectSignal(this, "clicked", () => {
                 if (this._supportedAudioServerInstalled && this._raopModuleInstalled) {
                     this._toggleAirPlay();
                 } else {
@@ -116,7 +106,7 @@ export const AirPlayToggle = GObject.registerClass(
          */
         async _detectAndSetAudioServer() {
             try {
-                const audioServer = await detectAudioServer(this._loggingEnabled);
+                const audioServer = await detectAudioServer();
                 if (audioServer) {
                     this._currentAudioServer = audioServer;
                     this._setAudioServer();
@@ -126,7 +116,7 @@ export const AirPlayToggle = GObject.registerClass(
 
                 return false;
             } catch (err) {
-                logErr(err, this._loggingEnabled);
+                logErr(err);
                 return false;
             }
         }
@@ -137,11 +127,11 @@ export const AirPlayToggle = GObject.registerClass(
          * If no supported audio server installed, default settings to pipewire.
          */
         _setAudioServer() {
-            if(this._currentAudioServer && this._extensionObject.settings.get_string("audio-server") !== this._currentAudioServer) {
-                this._extensionObject.settings.set_string("audio-server", this._currentAudioServer);
+            if(this._currentAudioServer && State.getSettingsKey("get_string", "audio-server") !== this._currentAudioServer) {
+                State.updateSettingsKey("set_string", "audio-server", this._currentAudioServer);
                 
             } else if (!this._currentAudioServer) {
-                this._extensionObject.settings.set_string("audio-server", "pipewire");
+                State.updateSettingsKey("set_string", "audio-server", "pipewire");
 
             }
         }
@@ -163,7 +153,6 @@ export const AirPlayToggle = GObject.registerClass(
                 ];
                 const output = await asyncExecCommandAndReadOutput(
                     commandArray,
-                    this._loggingEnabled,
                     null,
                     null
                 );
@@ -183,7 +172,7 @@ export const AirPlayToggle = GObject.registerClass(
 
                 return moduleLoaded;
             } catch (err) {
-                logErr(err, this._loggingEnabled);
+                logErr(err);
 
                 return false;
             }
@@ -201,7 +190,6 @@ export const AirPlayToggle = GObject.registerClass(
                 ];
                 let output = await asyncExecCommandAndReadOutput(
                     commandArray,
-                    this._loggingEnabled,
                     null,
                     null
                 );
@@ -217,7 +205,7 @@ export const AirPlayToggle = GObject.registerClass(
                 this._raopModuleInstalled = !this._raopModuleInstalled && this._raopModuleId ? true : this._raopModuleInstalled;
 
             } catch (err) {
-                logErr(err, this._loggingEnabled);
+                logErr(err);
             }
         }
 
@@ -231,7 +219,7 @@ export const AirPlayToggle = GObject.registerClass(
                 "subscribe"
             ];
             
-            execCommandAndMonitor(this._monitorProcess, command, true, (line) => {
+            execCommandAndMonitor(null, command, (line) => {
                 // Process the output to determine when a module is loaded or unloaded
                 this._processModuleEvent(line);
                 
@@ -294,7 +282,7 @@ export const AirPlayToggle = GObject.registerClass(
          * Instead of unloading duplicate sinks, Users can prevent duplicates by using PipeWire, by disabling ipv6 networking, or by disabling ipv6 in avahi.
          */
         async _removeDuplicateRaopSinks() {
-            if(!this._extensionObject.settings?.get_boolean("hide-duplicate-raop-sinks")) {
+            if(!State.getSettingsKey("get_boolean", "hide-duplicate-raop-sinks")) {
                 return;
             }
             
@@ -311,7 +299,6 @@ export const AirPlayToggle = GObject.registerClass(
             try {
                 const output = await asyncExecCommandAndReadOutput(
                     command,
-                    this._loggingEnabled,
                     null,
                     null
                 );
@@ -326,8 +313,8 @@ export const AirPlayToggle = GObject.registerClass(
                     }
                     
                 }
-            } catch (error) {
-                logErr(error, this._loggingEnabled);
+            } catch (err) {
+                logErr(err);
             }
         }
 
@@ -432,7 +419,6 @@ export const AirPlayToggle = GObject.registerClass(
             ];
             asyncExecCommandAndReadOutput(
                 command,
-                this._loggingEnabled,
                 null,
                 null
             );

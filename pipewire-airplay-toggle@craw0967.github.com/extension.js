@@ -19,19 +19,18 @@
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
-import { connectSettings, disconnectSettings } from "./functions/utils.js";
 import { AirPlayIndicator } from "./classes/indicator.js";
 import { AirPlayToggle } from "./classes/toggle.js";
 
+import { AirPlayToggleExtensionState as State } from "./state/state.js";
+
 export default class PipeWireAirPlayToggleExtension extends Extension {
     enable() {
-        this.settings = this.getSettings();
-
+        State.setExtensionObject(this);
+        
         this.toggle = new AirPlayToggle(this)
-        this.indicator = new AirPlayIndicator(this);
+        this.indicator = new AirPlayIndicator();
         this.indicator.quickSettingsItems.push(this.toggle);
-
-        connectSettings(this, this.settings);
 
         Main.panel.statusArea.quickSettings.addExternalIndicator(
             this.indicator
@@ -40,12 +39,10 @@ export default class PipeWireAirPlayToggleExtension extends Extension {
 
     disable() {
         // https://gjs.guide/extensions/review-guidelines/review-guidelines.html#destroy-all-objects
-
         // this.toggle.destroy() will get called and this.toggle will get set to null by this.indicator.destroy()
         this.indicator?.destroy();
         this.indicator = null;
 
-        disconnectSettings(this, this.settings);
-        this.settings = null;
+        State.destroy();
     }
 }

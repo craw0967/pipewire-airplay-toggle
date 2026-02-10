@@ -1,4 +1,4 @@
-//Should this be a class and access settings directly to get 'enabled'?
+import { AirPlayToggleExtensionState as State } from "../state/state.js";
 
 /**
  * Logs the given error message to the console if 'enabled' is true.
@@ -6,8 +6,8 @@
  * @param {Error} err - The error to be logged.
  * @param {boolean} [enabled=true] - Whether or not to log the error.
  */
-export const logErr = function logErr(err, enabled = true) {
-    if (enabled) {
+export const logErr = function logErr(err) {
+    if (State.getSettingsKey("get_boolean", "show-debug")) {
         console.error(err);
     }
 };
@@ -18,8 +18,8 @@ export const logErr = function logErr(err, enabled = true) {
  * @param {string} msg - The message to be logged.
  * @param {boolean} [enabled=true] - Whether or not to log the message.
  */
-export const logWarn = function logWarn(msg, enabled = true) {
-    if (enabled) {
+export const logWarn = function logWarn(msg) {
+    if (State.getSettingsKey("get_boolean", "show-debug")) {
         console.warn(msg);
     }
 };
@@ -30,8 +30,8 @@ export const logWarn = function logWarn(msg, enabled = true) {
  * @param {string} msg - The message to be logged.
  * @param {boolean} [enabled=true] - Whether or not to log the message.
  */
-export const logMsg = function logMsg(msg, enabled = true) {
-    if (enabled) {
+export const logMsg = function logMsg(msg) {
+    if (State.getSettingsKey("get_boolean", "show-debug")) {
         console.log(msg);
     }
 };

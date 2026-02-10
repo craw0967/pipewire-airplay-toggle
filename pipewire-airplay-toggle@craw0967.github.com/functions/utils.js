@@ -10,15 +10,20 @@ Gio._promisify(
     "read_line_finish_utf8"
 );
 
+import { AirPlayToggleExtensionState as State } from "../state/state.js";
+
 import { logErr } from "./logs.js";
+
+export function composeMixins(base, ...mixins) {
+    return mixins.reduce((cls, mixin) => mixin(cls), base);
+}
 
 /**
  * Detects if PipeWire or PulseAudio is installed and returns which one.
  * 
- * @param {boolean} loggingEnabled - Whether to enable debug logging
  * @returns {Promise<string|null>} "pipewire", "pulseaudio", or null if neither found
  */
-export async function detectAudioServer(loggingEnabled = false) {
+export async function detectAudioServer() {
     try {
         const commandArray = [
             "pactl", 
@@ -26,7 +31,6 @@ export async function detectAudioServer(loggingEnabled = false) {
         ];
         const output = await asyncExecCommandAndReadOutput(
             commandArray,
-            loggingEnabled,
             null,
             null
         );
@@ -46,74 +50,25 @@ export async function detectAudioServer(loggingEnabled = false) {
 
         return null;
     } catch (err) {
-        logErr(err, loggingEnabled);
+        logErr(err);
         return null;
     }
 }
 
 /**
- * Connects child classes and components to the extension's settings.
- * 
- * Child classes should be designed in such a way that the function containing the connection logic can be called from here.
- * Child classes should be initialized before this method is called so that their functions can be referenced from the extensionObject.
- *
- * @param {Extension} extensionObject - An instance of the default extension class.
- * @param {Gio.Settings} settings - The settings object that contains the extension's configuration.
- */
-export function connectSettings(extensionObject, settings) {
-    settings.connect(
-        "changed::indicator-icon",
-        () => {
-            extensionObject.indicator.setIndicatorIcon();
-        }
-    );
-
-    settings.connect(
-        "changed::show-indicator",
-        () => {
-            extensionObject.indicator.setIndicatorIconVisibility();
-        }
-    );
-}
-
-/**
- * Disconnects the extension's settings event handlers from the given settings object.
- * This should be called when the extension is disabled or unloaded.
- * 
- * @param {Extension} extensionObject - An instance of the default extension class.
- * @param {Gio.Settings} settings - The settings object that contains the extension's configuration.
- */
-export function disconnectSettings(extensionObject, settings) {
-    settings.disconnect(
-        "changed::indicator-icon",
-        () => {
-            extensionObject.indicator.setIndicatorIcon();
-        }
-    );
-
-    settings.disconnect(
-        "changed::show-indicator",
-        () => {
-            extensionObject.indicator.setIndicatorIconVisibility();
-        }
-    );
-}
-
-/**
  * Executes a command asynchronously.
  * On success, returns the output from `stdout` as an array of strings.
- * On failure, it logs the error (if `logErrors` is true) and returns `null`.
+ * On failure, it logs the error and returns `null`.
  *
  * If given, @input will be passed to `stdin` and @cancellable can be used to
  * stop the process before it finishes.
  *
  * @param {string[]} argv - A list of string arguments for the command.
- * @param {boolean} logErrors - Whether to log errors to the console.
  * @param {string | null} [input=null] - Input to write to `stdin` or `null` to ignore.
  * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object to stop the process.
  * @returns {Promise<string[] | null>} A promise that resolves with an array of strings (lines from stdout), or `null` on error.
  */
-export async function asyncExecCommandAndReadOutput(argv, logErrors, input = null, cancellable = null) {
+export async function asyncExecCommandAndReadOutput(argv, input = null, cancellable = null) {
     let cancelId = 0;
     let flags = Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE;
 
@@ -128,7 +83,7 @@ export async function asyncExecCommandAndReadOutput(argv, logErrors, input = nul
         // 2. Spawn the actual subprocess
         subprocess = launcher.spawnv(argv);
     } catch (err) {
-        logErr(err, logErrors);
+        logErr(err);
         return null;
     }
 
@@ -161,7 +116,7 @@ export async function asyncExecCommandAndReadOutput(argv, logErrors, input = nul
         return stdout.trim().split("\n");
         
     } catch (err) {
-        logErr(err, logErrors);
+        logErr(err);
         return null;
     } finally {
         if (cancelId > 0) cancellable.disconnect(cancelId);
@@ -183,12 +138,11 @@ export async function asyncExecCommandAndReadOutput(argv, logErrors, input = nul
  * 
  * @param {Gio.Subprocess} proc - Object used to store an instance of Gio.Subprocess. Will be initialized if not done in advance
  * @param {string[]} argv - The command line arguments
- * @param {boolean} logErrors - Whether or not to log errors
  * @param {function} outCallback - The callback function to call with each line read from stdout
  * @param {function | null} [inCallback=null] - Optional callback function to write to the process's stdin pipe
  * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object
  */
-export function execCommandAndMonitor(subprocess, argv, logErrors, outCallback, inCallback = null, cancellable = null) {
+export function execCommandAndMonitor(subprocess, argv, outCallback, inCallback = null, cancellable = null) {
     let cancelId = 0;
     let flags = Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE;
 
@@ -202,8 +156,9 @@ export function execCommandAndMonitor(subprocess, argv, logErrors, outCallback, 
     try {
         // 2. Spawn the actual subprocess using the launcher
         subprocess = subprocess ? subprocess : launcher.spawnv(argv);
+        State.addProcess(subprocess);
     } catch (err) {
-        logErr(err, logErrors);
+        logErr(err);
         return;
     }
 
@@ -222,9 +177,9 @@ export function execCommandAndMonitor(subprocess, argv, logErrors, outCallback, 
     const stdinStream = inCallback ? subprocess.get_stdin_pipe() : null;
 
     try {
-        readOutput(stdoutStream, stdinStream, logErrors, outCallback, inCallback);
+        readOutput(stdoutStream, stdinStream, outCallback, inCallback);
     } catch (err) {
-        logErr(err, logErrors);
+        logErr(err);
     } finally {
         if (cancelId > 0) cancellable.disconnect(cancelId);
     }
@@ -235,11 +190,10 @@ export function execCommandAndMonitor(subprocess, argv, logErrors, outCallback, 
  * 
  * @param {Gio.DataInputStream} stdout - The stream to read from
  * @param {Gio.SubprocessStdinPipe | null} stdin - The stream to write to if provided
- * @param {boolean} logErrors - Whether or not to log errors
  * @param {function} outCallback - The callback function to call with each line read from stdout
  * @param {function | null} [inCallback=null] - Optional callback function to write to the process's stdin pipe
  */
-function readOutput(stdout, stdin, logErrors, outCallback, inCallback) {
+function readOutput(stdout, stdin, outCallback, inCallback) {
     stdout.read_line_async(
         GLib.PRIORITY_LOW,
         null,
@@ -256,10 +210,10 @@ function readOutput(stdout, stdin, logErrors, outCallback, inCallback) {
                     }
 
                     // Continue reading from the stream
-                    readOutput(stdout, stdin, logErrors, outCallback, inCallback);
+                    readOutput(stdout, stdin, outCallback, inCallback);
                 }
             } catch (err) {
-                logErr(err, logErrors);
+                logErr(err);
             }
         }
     );

@@ -19,7 +19,7 @@ test_extension() {
     export SHELL_DEBUG=all
 
     # Check if the GNOME Shell version is 48 or earlier
-    if [[ $(printf "%d" "$gnome_shell_version") -lt 49 ]]; then
+    if [[ ${gnome_shell_version%%.*} -lt 49 ]]; then
         dbus-run-session -- gnome-shell --nested --wayland
     
     # GNOME 49 and later
@@ -101,5 +101,5 @@ if [[ -z ${features[${feature_name};function]} ]]; then
     exit 1
 fi
 
-echo "Executing ${features[feature_index]}..."
+echo "Executing ${features[${feature_name};description]}..."
 ${features[$feature_name;function]}
