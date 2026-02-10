@@ -14,11 +14,17 @@ import {
 
 import { AirPlayToggleExtensionState as State } from "../state/state.js";
 
-/** Class representing a QuickSettings Quick Toggle */
+/**
+ * Class representing a QuickSettings Quick Toggle for AirPlay.
+ * @extends QuickSettings.QuickToggle
+ */
 export const AirPlayToggle = GObject.registerClass(
     class AirPlayToggle extends QuickSettings.QuickToggle {
         _duplicateRemovalTimeout;
 
+        /**
+         * @constructor
+         */
         constructor() {
             super({
                 title: _(INDICATOR_TEXT),
@@ -30,7 +36,7 @@ export const AirPlayToggle = GObject.registerClass(
         }
 
         /**
-         * Clean up and destroy the toggle and any resources and events used or monitored by the class.
+         * Cleans up and destroys the toggle and any resources and events used or monitored by the class.
          * This should be called when the extension is being disabled or unloaded.
          */
         destroy() {
@@ -39,8 +45,9 @@ export const AirPlayToggle = GObject.registerClass(
             super.destroy();
         }
 
-        /***
-         * Initialize the state of the toggle by checking if supported audio server is available and setting up event monitoring. 
+        /**
+         * Initializes the state of the toggle by checking if a supported audio server is available and setting up event monitoring.
+         * @private
          */ 
         async _setInitialState() {
             State.updateStateKey("audioServerInstalled", await this._detectAndSetAudioServer());
@@ -60,9 +67,10 @@ export const AirPlayToggle = GObject.registerClass(
 
         }
 
-        /***
+        /**
          * Connects the toggle button to its click event handler.
          * When clicked, the toggle button will attempt to toggle the RAOP (AirPlay) module.
+         * @private
          */
         _connectToggle() {
             State.connectSignal(this, "clicked", () => {
@@ -74,6 +82,10 @@ export const AirPlayToggle = GObject.registerClass(
             });
         }
         
+        /**
+         * Notifies the user if the required audio server dependencies are missing.
+         * @private
+         */
         _notifyMissingDependencies() {
             if(State.getStateKey("raopModuleId")) {
                 State.updateStateKey("raopModuleInstalled", true);
@@ -87,10 +99,10 @@ export const AirPlayToggle = GObject.registerClass(
             }
         }
 
-        /***
-         * Checks if PipeWire is installed.
-         * 
-         * @returns {Promise<boolean>} A promise that resolves to true if PipeWire is installed, false otherwise.
+        /**
+         * Checks if PipeWire or PulseAudio is installed.
+         * @private
+         * @returns {Promise<boolean>} A promise that resolves to true if a supported audio server is installed, false otherwise.
          */
         async _detectAndSetAudioServer() {
             try {
@@ -102,10 +114,12 @@ export const AirPlayToggle = GObject.registerClass(
             }
         }
 
-        /***
-         * Sets the current audio server.
-         * 
-         * If no supported audio server installed, default settings to pipewire.
+        /**
+         * Sets the current audio server in the extension's state.
+         * If no supported audio server is installed, it defaults to pipewire.
+         * @private
+         * @param {string | null} audioServer - The name of the audio server found.
+         * @returns {boolean} - True if a supported server is set, false otherwise.
          */
         _setAudioServer(audioServer) {
             if(audioServer) {
@@ -119,8 +133,9 @@ export const AirPlayToggle = GObject.registerClass(
             } 
         }
 
-        /***
-         * Tries to get the ID of the RAOP (AirPlay) module and stores it if available.
+        /**
+         * Tries to get the ID of the RAOP (AirPlay) module and stores it in the state.
+         * @private
          */
         async _getRaopModuleId() {
             try {
@@ -153,8 +168,9 @@ export const AirPlayToggle = GObject.registerClass(
             }
         }
 
-        /***
+        /**
          * Toggles the state of the RAOP (AirPlay) module by loading or unloading it.
+         * @private
          */
         async _toggleAirPlay() {
             try {
@@ -184,9 +200,9 @@ export const AirPlayToggle = GObject.registerClass(
             }
         }
 
-        /***
-         * Sets up a process to monitor PipeWire module events and reads the output of the process to 
-         * determine when the RAOP module is loaded or unloaded.
+        /**
+         * Sets up a process to monitor pactl events to detect when the RAOP module is loaded or unloaded.
+         * @private
          */
         _monitorModuleEvents() {
             const command = [
@@ -201,12 +217,11 @@ export const AirPlayToggle = GObject.registerClass(
             }, null, null);
         }
 
-        /***
-         * Processes a line of output from the PipeWire and/or PulseAudio module event monitoring process.
-         * Determines when the RAOP module is loaded or unloaded by checking for the presence of the module ID in the line.
-         * If the module ID is present, sets the 'checked' property to true if the line indicates the module is loaded and false if unloaded.
-         * 
-         * @param {string} line - The line of output from the PipeWire and/or PulseAudio module event monitoring process.
+        /**
+         * Processes a line of output from the pactl event monitoring process.
+         * Determines when the RAOP module is loaded or unloaded and updates the toggle state.
+         * @private
+         * @param {string} line - The line of output from the pactl subscribe process.
          */
         async _processModuleEvent(line) {
             if(line.includes("module")) {
@@ -250,12 +265,13 @@ export const AirPlayToggle = GObject.registerClass(
             }
         }
 
-        /***
-         * This method is for PulseAudio and shouldn't be necessary for PipeWire
+        /**
+         * This method is for PulseAudio and shouldn't be necessary for PipeWire.
          * Removes duplicate RAOP sink visibility by unloading the duplicate module IDs.
-         * 
-         * Instead of unloading duplicate sinks, Users can prevent duplicates by using PipeWire, by disabling ipv6 networking, or by disabling ipv6 in avahi.
+         * Users can prevent duplicates by using PipeWire, by disabling ipv6 networking, or by disabling ipv6 in avahi.
+         * @private
          */
+        // TODO - Need to run this based on settings event if user toggles remove duplicates setting on
         async _removeDuplicateRaopSinks() {
             if(!State.getSettingsKey("get_boolean", "hide-duplicate-raop-sinks")) {
                 return;
@@ -292,11 +308,11 @@ export const AirPlayToggle = GObject.registerClass(
             }
         }
 
-        /***
+        /**
          * This method takes the output of 'pactl list sinks' and maps the owner module IDs of any RAOP sinks/outputs to their corresponding names.
-         * 
+         * @private
          * @param {string[]} output - The output of 'pactl list sinks'
-         * @returns {Map<string, Set<string>>} A map of sink/output names to their corresponding module IDs.
+         * @returns {Object<string, Set<string>>} A map of sink/output names to their corresponding module IDs.
          */
         _mapRaopOwnerModuleIds(output) {
             let name = null;
@@ -336,8 +352,8 @@ export const AirPlayToggle = GObject.registerClass(
 
         /**
          * Determines the owner module IDs of duplicated RAOP sinks/outputs from the given ownerMap.
-         * 
-         * @param {Map<string, Set<string>>} ownerMap - A map of RAOP sink/output names to their corresponding owner module IDs.
+         * @private
+         * @param {Object<string, Set<string>>} ownerMap - A map of RAOP sink/output names to their corresponding owner module IDs.
          * @returns {string[]} An array of duplicate RAOP sinks/outputs owner module IDs.
          */
         _determineDuplicateOwnerModuleIds(ownerMap) {
@@ -380,9 +396,9 @@ export const AirPlayToggle = GObject.registerClass(
             return duplicateModuleIds;
         }
 
-        /***
-         * Asynchronously executes a command to unload a PipeWire module.
-         * 
+        /**
+         * Asynchronously executes a command to unload a PipeWire/PulseAudio module.
+         * @private
          * @param {string} moduleId - The ID of the module to unload
          */
         async _asyncExecCommandAndUnloadModule(moduleId) {

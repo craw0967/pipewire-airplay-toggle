@@ -12,9 +12,15 @@ import { AirPlayToggle } from "./toggle.js";
 
 import { AirPlayToggleExtensionState as State } from "../state/state.js";
 
-/** Class representing a QuickSettings System Indicator */
+/**
+ * Class representing the AirPlay QuickSettings System Indicator.
+ * @extends QuickSettings.SystemIndicator
+ */
 export const AirPlayIndicator = GObject.registerClass(
     class AirPlayIndicator extends QuickSettings.SystemIndicator {
+        /**
+         * @constructor
+         */
         constructor() {
             super();
 
@@ -55,6 +61,10 @@ export const AirPlayIndicator = GObject.registerClass(
             super.destroy();
         }
 
+        /**
+         * Connects to settings changes for the indicator icon and visibility.
+         * @private
+         */
         _connectSettings() {
             State.connectSetting("indicator-icon", () => {
                     this._setIndicatorIcon();
@@ -62,14 +72,14 @@ export const AirPlayIndicator = GObject.registerClass(
             );
             
             State.connectSetting("show-indicator", () => {
-                    this.setIndicatorIconVisibility();
+                    this._setIndicatorIconVisibility();
                 }
             );
         }
 
-        /***
-         * Get the currently selected icon for the indicator and toggle switch.
-         * 
+        /**
+         * Gets the currently selected icon for the indicator and toggle switch.
+         * @private
          * @returns {Gio.FileIcon} - The icon that should be used for the indicator and toggle switch.
          */
         _getIcon() {
@@ -80,16 +90,18 @@ export const AirPlayIndicator = GObject.registerClass(
             return icon;
         };
 
-        /***
+        /**
          * Updates the icon of the indicator and the toggle switch.
+         * @private
          */
         _setIndicatorIcon() {
             this._indicator.gicon = this._getIcon();
             this._toggle.gicon = this._getIcon();
         }
 
-        /***
+        /**
          * Sets the visibility of the indicator icon based on extension settings.
+         * @private
          */
         _setIndicatorIconVisibility() {
             if (State.getSettingsKey("get_boolean", "show-indicator") === true) {

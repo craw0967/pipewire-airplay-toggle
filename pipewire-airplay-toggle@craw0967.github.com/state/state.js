@@ -16,11 +16,18 @@ const StateData = {
     airplaySpeakers: []
 };
 
-/* Class representing and managing the State of the Extension */
+/**
+ * Class representing and managing the state of the extension.
+ * This class is a singleton.
+ * @class State
+ * @extends GObject.Object
+ * @-side-effect-free
+ * @-signals 'pipewire-airplay-toggle-state-changed'
+ */
 const State = GObject.registerClass({
     Signals: {
         'pipewire-airplay-toggle-state-changed': {
-            param_types: [GObject.TYPE_BOOLEAN], // Define the argument types
+            param_types: [GObject.TYPE_STRING], // The key of the state that changed
         },
     }
 }, class State extends GObject.Object {
@@ -31,9 +38,10 @@ const State = GObject.registerClass({
     #extensionObject;
 
     /**
+     * @constructor
      * Instantiates a new State object.
-     * Throws an error if the State object has already been instantiated.
-     * State is a singleton and can only be instantiated once.
+     * Throws an error if the State object has already been instantiated, as it is a singleton.
+     * @param {object} args - The arguments for the constructor.
      */
     constructor({ ...args } = {}) {
         super({ ...args });
@@ -50,16 +58,22 @@ const State = GObject.registerClass({
 
     }
 
+    /**
+     * Cleans up and destroys the state object.
+     */
     destroy() {
         this.#data = null;
         this.#settings = null;
 
         State.#instance = null;
  
-        super.destroy();
+        if (super.destroy) super.destroy();
     }
 
-    // Method to access the single instance
+    /**
+     * Method to access the single instance of the State class.
+     * @returns {State} The single instance of the State class.
+     */
     static getInstance() {
         if (State.#instance === null) {
             new this();
@@ -75,26 +89,49 @@ const State = GObject.registerClass({
      * State Functions
      * *******/
 
+    /**
+     * Updates a key in the state data.
+     * @private
+     * @param {string} key - The key to update.
+     * @param {*} value - The new value.
+     */
     #updateStateKey(key, value) {
         this.#data[key] = value;
     }
 
-    // Private method to notify child components
+    /**
+     * Emits a signal to notify that the state has changed.
+     * @private
+     * @param {string} key - The key of the state that changed.
+     */
     #fireStateUpdateNotifyEvent(key) {
         // Emit an event signal with the updated key name
         this.emit('pipewire-airplay-toggle-state-changed', key);
     }
 
-    // This is for the state management classes only.  Don't modify the state directly
+    /**
+     * This is for the state management classes only. Do not modify the state directly.
+     * @type {object}
+     * @readonly
+     */
     get _State() {
         return this.#data;
     }
 
+    /**
+     * Gets a value from the state.
+     * @param {string} key - The key of the value to get.
+     * @returns {*} The value from the state.
+     */
     getStateKey(key) {
         return this.#data[key];
     }
 
-    // Method to update the state
+    /**
+     * Method to update the state and notify listeners.
+     * @param {string} key - The key to update.
+     * @param {*} value - The new value.
+     */
     updateStateKey(key, value) {
         this.#updateStateKey(key, value);
         // Notify child components that the state has been updated
@@ -105,6 +142,11 @@ const State = GObject.registerClass({
      * Settings Functions
      * *******/
 
+    /**
+     * Sets the settings object. This should only be done once.
+     * @private
+     * @param {Gio.Settings} settings - The settings object.
+     */
     #setSettings(settings) {
         // Set the initial value of the settings object only once
         if(!this.#settings) {
@@ -112,17 +154,32 @@ const State = GObject.registerClass({
         }
     }
 
-    // This is for the SettingsMixin only. Don't modify the settings directly.
+    /**
+     * This is for the SettingsMixin only. Do not modify the settings directly.
+     * @type {Gio.Settings}
+     * @readonly
+     */
     get _Settings() {
         return this.#settings;
     }
 
+    /**
+     * Calls a method on the settings object to update a value.
+     * @param {string} method - The settings method to call (e.g., 'set_boolean').
+     * @param  {...any} args - The arguments for the settings method.
+     */
     updateSettingsKey(method, ...args) {
         if (this.#settings && typeof this.#settings[method] === 'function') {
             this.#settings[method](...args);
         }
     }
 
+    /**
+     * Calls a method on the settings object to get a value.
+     * @param {string} method - The settings method to call (e.g., 'get_boolean').
+     * @param  {...any} args - The arguments for the settings method.
+     * @returns {*} The value from the settings, or null if an error occurs.
+     */
     getSettingsKey(method, ...args) {
         if (this.#settings && typeof this.#settings[method] === 'function') {
             return this.#settings[method](...args);
@@ -135,6 +192,10 @@ const State = GObject.registerClass({
      * Extension Object Functions (PipeWireAirPlayToggleExtension class)
      * *******/
 
+    /**
+     * Sets the extension object and initializes settings. This should only be done once.
+     * @param {Extension} obj - The extension object.
+     */
     setExtensionObject(obj) {
         if (!this.#extensionObject) {
             this.#extensionObject = obj;
@@ -142,18 +203,25 @@ const State = GObject.registerClass({
         }
     }
 
+    /**
+     * Gets the extension object.
+     * @returns {Extension} The extension object.
+     */
     getExtensionObject() {
         return this.#extensionObject;
     }
 });
 
-const ComposedState = composeMixins(
+const ComposedState = GObject.registerClass(class AirPlayToggleExtensionState extends composeMixins(
     State,
     SignalHandlerMixin,
     SettingsMixin,
     ProcessHandlerMixin,
-);
+) {});
 
-const FinalState = GObject.registerClass(class AirPlayToggleExtensionState extends ComposedState {});
-
-export const AirPlayToggleExtensionState = FinalState.getInstance();
+/**
+ * The singleton instance of the composed state manager for the extension.
+ * It combines the base State class with SignalHandlerMixin, SettingsMixin, and ProcessHandlerMixin.
+ * @type {AirPlayToggleExtensionState}
+ */
+export const AirPlayToggleExtensionState = ComposedState.getInstance();
