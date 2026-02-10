@@ -8,8 +8,6 @@ import { composeMixins } from "../functions/utils.js";
 
 // Set state defaults
 const StateData = {
-    extensionObject: null,
-    loggingEnabled: false,
     toggleChecked: false,
     audioServerInstalled: false,
     raopModuleInstalled: false,
@@ -73,6 +71,10 @@ const State = GObject.registerClass({
     // But the idea is that no other component should be modifying the state directly
     // It should be managed in this class only
 
+    /* *******
+     * State Functions
+     * *******/
+
     #updateStateKey(key, value) {
         this.#data[key] = value;
     }
@@ -99,6 +101,10 @@ const State = GObject.registerClass({
         this.#fireStateUpdateNotifyEvent();
     }
 
+    /* *******
+     * Settings Functions
+     * *******/
+
     #setSettings(settings) {
         // Set the initial value of the settings object only once
         if(!this.#settings) {
@@ -124,6 +130,10 @@ const State = GObject.registerClass({
 
         return null;
     }
+
+    /* *******
+     * Extension Object Functions (PipeWireAirPlayToggleExtension class)
+     * *******/
 
     setExtensionObject(obj) {
         if (!this.#extensionObject) {
