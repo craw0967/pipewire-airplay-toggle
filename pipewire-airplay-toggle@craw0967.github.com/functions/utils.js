@@ -11,8 +11,6 @@ Gio._promisify(
     "read_line_finish_utf8"
 );
 
-import { AirPlayToggleExtensionState as State } from "../state/state.js";
-
 /**
  * Applies a series of mixins to a base class.
  *
@@ -136,7 +134,7 @@ export async function asyncExecCommandAndReadOutput(argv, input = null, cancella
  * @param {Gio.Cancellable|null} [cancellable=null] - Optional cancellable to terminate the process.
  * @throws {Error} Throws an error if the subprocess fails to spawn.
  */
-export function execCommandAndMonitor(subproc, argv, outCallback, inCallback = null, cancellable = null) {
+export function execCommandAndMonitor(state, subproc, argv, outCallback, inCallback = null, cancellable = null) {
     let cancelId = 0;
     let flags = Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE;
 
@@ -150,7 +148,7 @@ export function execCommandAndMonitor(subproc, argv, outCallback, inCallback = n
     try {
         // 2. Spawn the actual subprocess using the launcher
         subprocess = subproc ? subproc : launcher.spawnv(argv);
-        State.addProcess(subprocess);
+        state.addProcess(subprocess);
     } catch (err) {
         throw new Error(err);
     }

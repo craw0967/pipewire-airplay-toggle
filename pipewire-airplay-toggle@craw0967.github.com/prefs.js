@@ -201,7 +201,7 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
                 window._settings.set_string("audio-server", audioServer);
             }
         } catch (err) {
-            logErr(err);
+            logErr(this.state, err);
         }
         
     }

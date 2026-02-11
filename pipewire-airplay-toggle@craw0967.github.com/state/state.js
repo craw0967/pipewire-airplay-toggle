@@ -32,7 +32,6 @@ const State = GObject.registerClass({
     }
 }, class State extends GObject.Object {
     // Private Variables
-    static #instance = null;
     #data;
     #settings;
     #extensionObject;
@@ -40,7 +39,6 @@ const State = GObject.registerClass({
     /**
      * @constructor
      * Instantiates a new State object.
-     * Throws an error if the State object has already been instantiated, as it is a singleton.
      * @param {object} args - The arguments for the constructor.
      */
     constructor({ ...args } = {}) {
@@ -49,13 +47,6 @@ const State = GObject.registerClass({
         // structuredClone() not yet supported and custom deep clone function not necessary at this time
         this.#data = JSON.parse(JSON.stringify(StateData));
         this.#settings = null;
-        
-        if (State.#instance !== null) {
-            throw new Error('State is a singleton and cannot be instantiated more than once');
-        }
-
-        State.#instance = this;
-
     }
 
     /**
@@ -64,21 +55,8 @@ const State = GObject.registerClass({
     destroy() {
         this.#data = null;
         this.#settings = null;
-
-        State.#instance = null;
  
         if (super.destroy) super.destroy();
-    }
-
-    /**
-     * Method to access the single instance of the State class.
-     * @returns {State} The single instance of the State class.
-     */
-    static getInstance() {
-        if (State.#instance === null) {
-            new this();
-        }
-        return State.#instance;
     }
 
     // The state and settings functions could be handled via getters and setters
@@ -212,16 +190,9 @@ const State = GObject.registerClass({
     }
 });
 
-const ComposedState = GObject.registerClass(class AirPlayToggleExtensionState extends composeMixins(
+export const AirPlayToggleExtensionState = GObject.registerClass(class AirPlayToggleExtensionState extends composeMixins(
     State,
     SignalHandlerMixin,
     SettingsMixin,
     ProcessHandlerMixin,
 ) {});
-
-/**
- * The singleton instance of the composed state manager for the extension.
- * It combines the base State class with SignalHandlerMixin, SettingsMixin, and ProcessHandlerMixin.
- * @type {AirPlayToggleExtensionState}
- */
-export const AirPlayToggleExtensionState = ComposedState.getInstance();

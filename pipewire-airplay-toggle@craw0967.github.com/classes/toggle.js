@@ -12,8 +12,6 @@ import {
     PW_MISSING_BODY
 } from "../constants/config.js";
 
-import { AirPlayToggleExtensionState as State } from "../state/state.js";
-
 /**
  * Class representing a QuickSettings Quick Toggle for AirPlay.
  * @extends QuickSettings.QuickToggle
@@ -26,11 +24,13 @@ export const AirPlayToggle = GObject.registerClass(
         /**
          * @constructor
          */
-        constructor() {
+        constructor(state) {
             super({
                 title: _(INDICATOR_TEXT),
                 toggleMode: false,
             });
+
+            this.state = state;
 
             this._setInitialState();
             this._connectToggle();
@@ -52,14 +52,14 @@ export const AirPlayToggle = GObject.registerClass(
          * @private
          */ 
         async _setInitialState() {
-            State.updateStateKey("audioServerInstalled", await this._detectAndSetAudioServer());
+            this.state.updateStateKey("audioServerInstalled", await this._detectAndSetAudioServer());
 
-            if (State.getStateKey("audioServerInstalled")) {
+            if (this.state.getStateKey("audioServerInstalled")) {
                 await this._getRaopModuleId();
-                this.checked =  State.getStateKey("raopModuleId") ? true : false;
+                this.checked =  this.state.getStateKey("raopModuleId") ? true : false;
                 
                 if(this.checked) {
-                    State.updateStateKey("raopModuleInstalled", true);
+                    this.state.updateStateKey("raopModuleInstalled", true);
                 }
 
                 this._monitorModuleEvents();
@@ -75,8 +75,8 @@ export const AirPlayToggle = GObject.registerClass(
          * @private
          */
         _connectToggle() {
-            State.connectSignal(this, "clicked", () => {
-                if (State.getStateKey("audioServerInstalled")) {
+            this.state.connectSignal(this, "clicked", () => {
+                if (this.state.getStateKey("audioServerInstalled")) {
                     this._toggleAirPlay();
                 } else {
                     this._notifyMissingDependencies();
@@ -89,11 +89,11 @@ export const AirPlayToggle = GObject.registerClass(
          * @private
          */
         _notifyMissingDependencies() {
-            if(State.getStateKey("raopModuleId")) {
-                State.updateStateKey("raopModuleInstalled", true);
+            if(this.state.getStateKey("raopModuleId")) {
+                this.state.updateStateKey("raopModuleInstalled", true);
             }
 
-            if (!State.getStateKey("audioServerInstalled") || !State.getStateKey("raopModuleInstalled")) {
+            if (!this.state.getStateKey("audioServerInstalled") || !this.state.getStateKey("raopModuleInstalled")) {
                 Main.notify(
                     _(PW_MISSING_TITLE),
                     _(PW_MISSING_BODY)
@@ -111,7 +111,7 @@ export const AirPlayToggle = GObject.registerClass(
                 return this._setAudioServer(await detectAudioServer());
 
             } catch (err) {
-                logErr(err);
+                logErr(this.state, err);
                 return false;
             }
         }
@@ -125,12 +125,12 @@ export const AirPlayToggle = GObject.registerClass(
          */
         _setAudioServer(audioServer) {
             if(audioServer) {
-                if(State.getSettingsKey("get_string", "audio-server") !== audioServer) {
-                    State.updateSettingsKey("set_string", "audio-server", audioServer);
+                if(this.state.getSettingsKey("get_string", "audio-server") !== audioServer) {
+                    this.state.updateSettingsKey("set_string", "audio-server", audioServer);
                 }
                 return true;
             } else {
-                State.updateSettingsKey("set_string", "audio-server", "pipewire");
+                this.state.updateSettingsKey("set_string", "audio-server", "pipewire");
                 return false;
             } 
         }
@@ -178,14 +178,14 @@ export const AirPlayToggle = GObject.registerClass(
                     );
 
                     if (filtered?.length > 0 && filtered[0]) {
-                        State.updateStateKey("raopModuleId", filtered[0].split("\t")[0]);
+                        this.state.updateStateKey("raopModuleId", filtered[0].split("\t")[0]);
                     } else {
-                        State.updateStateKey("raopModuleId", null);
+                        this.state.updateStateKey("raopModuleId", null);
                     }
                 }
 
             } catch (err) {
-                logErr(err);
+                logErr(this.state, err);
             } finally {
                 this._getRaopModuleIdPromise = null;
             }
@@ -208,18 +208,18 @@ export const AirPlayToggle = GObject.registerClass(
                     null
                 );
                 
-                if (!State.getStateKey("raopModuleId") &&
+                if (!this.state.getStateKey("raopModuleId") &&
                     output &&
                     output.length > 0 &&
                     output[0].length > 0
                 ) {
-                    State.updateStateKey("raopModuleId", output[0]);
+                    this.state.updateStateKey("raopModuleId", output[0]);
                 }
                 
                 this._notifyMissingDependencies();
 
             } catch (err) {
-                logErr(err);
+                logErr(this.state, err);
             }
         }
 
@@ -234,13 +234,13 @@ export const AirPlayToggle = GObject.registerClass(
                     "subscribe"
                 ];
                 
-                execCommandAndMonitor(null, command, (line) => {
+                execCommandAndMonitor(this.state, null, command, (line) => {
                     // Process the output to determine when a module is loaded or unloaded
                     this._processModuleEvent(line);
                     
                 }, null, null);
             } catch (err) {
-                logErr(err);
+                logErr(this.state, err);
             }
             
         }
@@ -254,27 +254,27 @@ export const AirPlayToggle = GObject.registerClass(
         async _processModuleEvent(line) {
             if(line.includes("module")) {
                 // State 1: We know the module ID, watch for its removal
-                if (State.getStateKey("raopModuleId") && line.includes(State.getStateKey("raopModuleId")) && line.includes("remove")) {
-                    State.updateStateKey("raopModuleId", null);
+                if (this.state.getStateKey("raopModuleId") && line.includes(this.state.getStateKey("raopModuleId")) && line.includes("remove")) {
+                    this.state.updateStateKey("raopModuleId", null);
                     this.checked = false;
                 
                 // State 2: New module loaded, check if it's the one we want
                 } else {
                     // Module ID not known - check to see if it loaded. Sometimes _toggleAirplay sets the module ID before we get here, sometimes not.
-                    if(!State.getStateKey("raopModuleId") && line.includes("new")) {
+                    if(!this.state.getStateKey("raopModuleId") && line.includes("new")) {
                         await this._getRaopModuleId();
                     }
 
                     // Module ID is known
-                    if(State.getStateKey("raopModuleId") &&
-                        line.includes(State.getStateKey("raopModuleId")) 
+                    if(this.state.getStateKey("raopModuleId") &&
+                        line.includes(this.state.getStateKey("raopModuleId")) 
                     ){
                         this.checked = true;
                     }
                 }
             }
 
-            if(State.getSettingsKey("get_string", "audio-server") === "pulseaudio") {
+            if(this.state.getSettingsKey("get_string", "audio-server") === "pulseaudio") {
                 // Handle sink events - debounce duplicate removal
                 // Since these events are all async and we don't know when the new AirPlay sinks finish loading
                 // we need to wait a short period of time after the last event to ensure they have finished loading
@@ -301,7 +301,7 @@ export const AirPlayToggle = GObject.registerClass(
          */
         // TODO - Need to run this based on settings event if user toggles remove duplicates setting on
         async _removeDuplicateRaopSinks() {
-            if(!State.getSettingsKey("get_boolean", "hide-duplicate-raop-sinks")) {
+            if(!this.state.getSettingsKey("get_boolean", "hide-duplicate-raop-sinks")) {
                 return;
             }
             
@@ -332,7 +332,7 @@ export const AirPlayToggle = GObject.registerClass(
                     
                 }
             } catch (err) {
-                logErr(err);
+                logErr(this.state, err);
             }
         }
 
@@ -442,7 +442,7 @@ export const AirPlayToggle = GObject.registerClass(
                     null
                 );
             } catch (err) {
-                logErr(err);
+                logErr(this.state, err);
             }
         }
     }

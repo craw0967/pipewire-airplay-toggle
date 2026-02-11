@@ -1,5 +1,3 @@
-import { logErr } from "../functions/logs.js";
-
 /**
  * A mixin for managing subprocesses.
  * @mixin
@@ -24,12 +22,8 @@ export const ProcessHandlerMixin = (Base) => class extends Base {
      * @param {object} proc - The process to add.
      */
     addProcess(proc) {
-        try {
-            if (!this.#processHandlers.includes(proc)) {
-                this.#processHandlers.push(proc);
-            }
-        } catch (err) {
-            logErr(err);
+        if (!this.#processHandlers.includes(proc)) {
+            this.#processHandlers.push(proc);
         }
     }
 
@@ -39,11 +33,7 @@ export const ProcessHandlerMixin = (Base) => class extends Base {
      */
     _disconnectAllProcesses() {
         for (const proc of this.#processHandlers) {
-            try {
-                proc.force_exit();
-            } catch (err) {
-                logErr(err);
-            }
+            proc.force_exit();
         }
     }
 

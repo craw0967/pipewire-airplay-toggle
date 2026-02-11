@@ -1,5 +1,3 @@
-import { logErr } from "../functions/logs.js";
-
 /**
  * A mixin for managing signals.
  * @mixin
@@ -24,6 +22,7 @@ export const SignalHandlerMixin = (Base) => class extends Base {
      * @param {object} obj - The object to connect to the signal
      * @param {string} signalName - The name of the signal to connect to the object
      * @param {function} callback - The function to execute when the signal event is triggered
+     * @throws {Error} Throws an error if the signal connect fails
      * @returns {number | null} - The ID of the handler, or null on error.
      */
     connectSignal(obj, signalName, callback) {
@@ -33,10 +32,8 @@ export const SignalHandlerMixin = (Base) => class extends Base {
 
             return id;
         } catch (err) {
-            logErr(err);
+            throw new Error(err);
         }
-
-        return null;
     }
 
     /**
@@ -45,11 +42,7 @@ export const SignalHandlerMixin = (Base) => class extends Base {
      */
     _disconnectAllSignals() {
         for (const [obj, id] of this.#signalHandlers) {
-            try {
-                obj.disconnect(id);
-            } catch (err) {
-                logErr(err);
-            }
+            obj.disconnect(id);
         }
     }
 

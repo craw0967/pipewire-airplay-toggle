@@ -19,7 +19,7 @@
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
 import { AirPlayIndicator } from "./classes/indicator.js";
-import { AirPlayToggleExtensionState as State } from "./state/state.js";
+import { AirPlayToggleExtensionState } from "./state/state.js";
 
 /**
  * The main class for the PipeWire AirPlay Toggle extension.
@@ -31,9 +31,10 @@ export default class PipeWireAirPlayToggleExtension extends Extension {
      * This is called when the extension is initialized.
      */
     enable() {
-        State.setExtensionObject(this);
+        this.state = new AirPlayToggleExtensionState();
+        this.state.setExtensionObject(this);
         
-        this._indicator = new AirPlayIndicator();
+        this._indicator = new AirPlayIndicator(this.state);
     }
 
     /**
@@ -45,6 +46,6 @@ export default class PipeWireAirPlayToggleExtension extends Extension {
         this._indicator?.destroy();
         this._indicator = null;
 
-        State.destroy();
+        this.state.destroy();
     }
 }

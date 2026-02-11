@@ -1,5 +1,3 @@
-import { logErr } from "../functions/logs.js";
-
 /**
  * A mixin for managing extension settings.
  * @mixin
@@ -23,7 +21,8 @@ export const SettingsMixin = (Base) => class extends Base {
      * Connects a callback to a setting change.
      * @param {string} key - The key of the setting.
      * @param {function} callback - The callback to execute when the setting changes.
-     * @returns {number | null} - The ID of the handler, or null on error.
+     * @throws {Error} Throws an error if connecting the setting event fails
+     * @returns {number} - The ID of the handler, or null on error.
      */
     connectSetting(key, callback) {
         if (!this._Settings) {
@@ -35,12 +34,9 @@ export const SettingsMixin = (Base) => class extends Base {
             this.#settingsHandlers.push(id);
 
             return id;
-        } catch (e) {
-            logErr(e);
+        } catch (err) {
+            throw new Error(err);
         }
-
-        return null;
-        
     }
 
     /**
@@ -49,7 +45,8 @@ export const SettingsMixin = (Base) => class extends Base {
      * @param {object} obj - The object to bind the setting to.
      * @param {string} property - The property of the object to bind to.
      * @param {Gio.SettingsBindFlags} flags - The flags for the binding.
-     * @returns {number | null} - The ID of the handler, or null on error.
+     * @throws {Error} Throws an error if binding the setting fails
+     * @returns {number} - The ID of the handler, or null on error.
      */
     bindSetting(key, obj, property, flags) {
         if (!this._Settings) {
@@ -61,11 +58,9 @@ export const SettingsMixin = (Base) => class extends Base {
             this.#settingsHandlers.push(id);
 
             return id;
-        } catch (e) {
-            logErr(e);
+        } catch (err) {
+            throw new Error(err);
         }
-
-        return null;
     }
 
     /**
@@ -74,12 +69,8 @@ export const SettingsMixin = (Base) => class extends Base {
      */
     _disconnectAllSettings() {
         if (this._Settings) {
-            try {
-                for (const id of this.#settingsHandlers) {
-                    this._Settings.disconnect(id);
-                } 
-            } catch (e) {
-                logErr(e);
+            for (const id of this.#settingsHandlers) {
+                this._Settings.disconnect(id);
             }
         }
     }
