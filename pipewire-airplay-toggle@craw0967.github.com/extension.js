@@ -47,5 +47,6 @@ export default class PipeWireAirPlayToggleExtension extends Extension {
         this._indicator = null;
 
         this.state.destroy();
+        this.state = null;
     }
 }
