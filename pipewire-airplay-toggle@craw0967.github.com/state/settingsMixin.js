@@ -34,7 +34,7 @@ export const SettingsMixin = (Base) => class extends Base {
 
         try {
             const id = this._Settings.connect(`changed::${key}`, callback);
-            this.#settingsHandlers.push(id);
+            this.#settingsHandlers.connects.push(id);
 
             return id;
         } catch (err) {
@@ -58,7 +58,7 @@ export const SettingsMixin = (Base) => class extends Base {
 
         try {
             const id = this._Settings.bind(key, obj, property, flags);
-            this.#settingsHandlers.push(id);
+            this.#settingsHandlers.binds.push(id);
 
             return id;
         } catch (err) {

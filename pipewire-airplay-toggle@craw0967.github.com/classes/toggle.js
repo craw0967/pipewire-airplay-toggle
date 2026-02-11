@@ -16,10 +16,10 @@ import { AirPlayToggleMenu } from "./toggleMenu.js";
 
 /**
  * Class representing a QuickSettings Quick Toggle for AirPlay.
- * @extends QuickSettings.QuickToggle
+ * @extends QuickSettings.QuickMenuToggle
  */
 export const AirPlayToggle = GObject.registerClass(
-    class AirPlayToggle extends QuickSettings.QuickToggle {
+    class AirPlayToggle extends QuickSettings.QuickMenuToggle {
         _duplicateRemovalTimeout;
         _getRaopModuleIdPromise;
 
