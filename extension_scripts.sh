@@ -19,7 +19,7 @@ test_extension() {
     export SHELL_DEBUG=all
 
     # Check if the GNOME Shell version is 48 or earlier
-    if [[ $(printf "%d" "$gnome_shell_version") -lt 49 ]]; then
+    if [[ ${gnome_shell_version%%.*} -lt 49 ]]; then
         dbus-run-session -- gnome-shell --nested --wayland
     
     # GNOME 49 and later
@@ -44,6 +44,7 @@ package_extension() {
         --extra-source=functions \
         --extra-source=icons \
         --extra-source=classes \
+        --extra-source=state \
         --extra-source=../LICENSE
 
     echo "Extension packaged successfully."
@@ -54,7 +55,7 @@ package_extension() {
 }
 
 compile_gschema() {
-    local_directory="/home/$USER/.local/share/gnome-shell/extensions/pipewire-airplay-toggle@craw0967.github.com/schemas/"
+    local_directory="$HOME/.local/share/gnome-shell/extensions/pipewire-airplay-toggle@craw0967.github.com/schemas/"
     global_directory="/usr/share/gnome-shell/extensions/pipewire-airplay-toggle@craw0967.github.com/schemas/"
 
     if [ -d "$local_directory" ]; then
@@ -101,5 +102,5 @@ if [[ -z ${features[${feature_name};function]} ]]; then
     exit 1
 fi
 
-echo "Executing ${features[feature_index]}..."
+echo "Executing ${features[${feature_name};description]}..."
 ${features[$feature_name;function]}
