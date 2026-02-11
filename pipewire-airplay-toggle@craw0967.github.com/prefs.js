@@ -7,6 +7,7 @@ import {ExtensionPreferences, gettext as _} from "resource:///org/gnome/Shell/Ex
 
 import { PREFS_PAGES } from "./constants/config.js";
 import { detectAudioServer } from "./functions/utils.js";
+import { logErr } from "./functions/logs.js";
 
 const ComboOptions = GObject.registerClass({
     Properties: {
@@ -192,12 +193,17 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
      * @param {Adw.PreferencesWindow} window - The window containing the extension's settings.
      */
     async _detectAndSetAudioServer(window) {
-        const loggingEnabled = window._settings.get_boolean("show-debug");
-        const audioServer = await detectAudioServer(loggingEnabled);
-        
-        if (audioServer && window._settings.get_string("audio-server") !== audioServer) {
-            window._settings.set_string("audio-server", audioServer);
+        try {
+            const loggingEnabled = window._settings.get_boolean("show-debug");
+            const audioServer = await detectAudioServer(loggingEnabled);
+            
+            if (audioServer && window._settings.get_string("audio-server") !== audioServer) {
+                window._settings.set_string("audio-server", audioServer);
+            }
+        } catch (err) {
+            logErr(this.state, err);
         }
+        
     }
 
     /***

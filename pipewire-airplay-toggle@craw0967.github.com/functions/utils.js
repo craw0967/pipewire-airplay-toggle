@@ -1,5 +1,6 @@
 import GLib from "gi://GLib";
 import Gio from "gi://Gio";
+
 Gio._promisify(
     Gio.Subprocess.prototype,
     "communicate_utf8_async"
@@ -10,20 +11,28 @@ Gio._promisify(
     "read_line_finish_utf8"
 );
 
-import { logErr } from "./logs.js";
-
+/**
+ * Applies a series of mixins to a base class.
+ *
+ * @param {Function} base - The base class to which mixins will be applied.
+ * @param {...Function} mixins - The mixin functions to apply.
+ * @returns {Function} A new class with all mixins applied.
+ */
 export function composeMixins(base, ...mixins) {
     return mixins.reduce((cls, mixin) => mixin(cls), base);
 }
 
 /**
  * Detects if PipeWire or PulseAudio is installed and returns which one.
- * 
- * @returns {Promise<string|null>} "pipewire", "pulseaudio", or null if neither found
+ * @throws {Error} Throws an error if the underlying `pactl info` command fails.
+ * @returns {Promise<string|null>} A promise that resolves to "pipewire", "pulseaudio", or null if neither is found.
  */
 export async function detectAudioServer() {
     try {
-        const commandArray = ["pactl", "info"];
+        const commandArray = [
+            "pactl", 
+            "info"
+        ];
         const output = await asyncExecCommandAndReadOutput(
             commandArray,
             null,
@@ -45,168 +54,140 @@ export async function detectAudioServer() {
 
         return null;
     } catch (err) {
-        logErr(err);
-        return null;
+        throw new Error(err);
     }
 }
 
 /**
- * Connects child classes and components to the extension's settings.
- * 
- * Child classes should be designed in such a way that the function containing the connection logic can be called from here.
- * Child classes should be initialized before this method is called so that their functions can be referenced from the extensionObject.
+ * Executes a command asynchronously and returns its stdout as an array of strings.
+ * This function spawns a subprocess and waits for it to complete.
  *
- * @param {Extension} extensionObject - An instance of the default extension class.
- * @param {Gio.Settings} settings - The settings object that contains the extension's configuration.
- */
-export function connectSettings(extensionObject, settings) {
-    settings.connect(
-        "changed::indicator-icon",
-        () => {
-            extensionObject.indicator.setIndicatorIcon();
-        }
-    );
-
-    settings.connect(
-        "changed::show-indicator",
-        () => {
-            extensionObject.indicator.setIndicatorIconVisibility();
-        }
-    );
-}
-
-/**
- * Disconnects the extension's settings event handlers from the given settings object.
- * This should be called when the extension is disabled or unloaded.
- * 
- * @param {Extension} extensionObject - An instance of the default extension class.
- * @param {Gio.Settings} settings - The settings object that contains the extension's configuration.
- */
-export function disconnectSettings(extensionObject, settings) {
-    settings.disconnect(
-        "changed::indicator-icon",
-        () => {
-            extensionObject.indicator.setIndicatorIcon();
-        }
-    );
-
-    settings.disconnect(
-        "changed::show-indicator",
-        () => {
-            extensionObject.indicator.setIndicatorIconVisibility();
-        }
-    );
-}
-
-/**
- * Execute a command asynchronously and return the output from `stdout` on success.
- * Throws, catches, and logs output from `stderr` on failure
- * 
- * If given, @input will be passed to `stdin` and @cancellable can be used to
- * stop the process before it finishes.
- * 
- * @param {string[]} argv - A list of string arguments
- * @param {string | null} [input=null] - Input to write to `stdin` or null to ignore
- * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object
- * @returns {Promise<string[]>} A promise that resolves with an array of strings, each string representing a line in the output.
+ * @param {string[]} argv - A list of string arguments for the command.
+ * @param {string|null} [input=null] - Optional string to write to the process's `stdin`.
+ * @param {Gio.Cancellable|null} [cancellable=null] - Optional cancellable to terminate the process.
+ * @throws {Error} Throws an error if the subprocess fails to spawn or exits with a non-zero status.
+ * @returns {Promise<string[]>} A promise that resolves with an array of
+ *   strings from stdout (or an empty array if no output).
  */
 export async function asyncExecCommandAndReadOutput(argv, input = null, cancellable = null) {
     let cancelId = 0;
-    let flags =
-        Gio.SubprocessFlags.STDOUT_PIPE |
-        Gio.SubprocessFlags.STDERR_PIPE;
+    let flags = Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE;
 
     if (input !== null) flags |= Gio.SubprocessFlags.STDIN_PIPE;
 
-    const proc = new Gio.Subprocess({ argv, flags });
-    proc.init(cancellable);
+    // 1. Setup the Launcher
+    const launcher = new Gio.SubprocessLauncher({ flags });
+    launcher.setenv('LC_ALL', 'C', true);
 
-    if (cancellable instanceof Gio.Cancellable)
-        cancelId = cancellable.connect(() => proc.force_exit());
+    let subprocess;
+    try {
+        // 2. Spawn the actual subprocess
+        subprocess = launcher.spawnv(argv);
+    } catch (err) {
+        throw new Error(err);
+    }
+
+    // 3. Connect cancellation to the subprocess, not the launcher
+    if (cancellable instanceof Gio.Cancellable) {
+        cancelId = cancellable.connect(() => subprocess.force_exit());
+    }
 
     try {
-        const [stdout, stderr] = await proc.communicate_utf8_async(
+        // 4. Call communicate on the subprocess instance
+        const [stdout, stderr] = await subprocess.communicate_utf8_async(
             input,
-            null
+            cancellable // Pass the cancellable directly to the async call
         );
-        const status = proc.get_exit_status();
+        
+        const status = subprocess.get_exit_status();
 
         if (status !== 0) {
             throw new Gio.IOErrorEnum({
                 code: Gio.IOErrorEnum.FAILED,
                 message: stderr
                     ? stderr.trim()
-                    : `Command '${argv}' failed with exit code ${status}`,
+                    : `Command '${argv.join(' ')}' failed with exit code ${status}`,
             });
         }
 
-        const out = stdout ? stdout.trim() : stdout;
+        if (!stdout) return [];
 
-        const output =
-            out && out instanceof Uint8Array
-                ? new TextDecoder().decode(out).split("\n")
-                : out.toString().split("\n");
-
-        return output;
+        // communicate_utf8_async returns a string, so TextDecoder is unnecessary
+        return stdout.trim().split("\n");
+        
     } catch (err) {
-        logErr(err);
-        return null;
+        throw new Error(err);
     } finally {
         if (cancelId > 0) cancellable.disconnect(cancelId);
     }
 }
 
 /**
- * Execute a command and monitor the process's stdout streams.
- * 
- * This function is intended to be used with external processes that run continuously and output data
- * https://gjs.guide/guides/gio/subprocesses.html#communicating-with-processes
- * 
- * @param {Gio.Subprocess} proc - Object used to store an instance of Gio.Subprocess. Will be initialized if not done in advance
- * @param {string[]} argv - The command line arguments
- * @param {function} outCallback - The callback function to call with each line read from stdout
- * @param {function | null} [inCallback=null] - Optional callback function to write to the process's stdin pipe
- * @param {Gio.Cancellable | null} [cancellable=null] - Optional cancellable object
+ * Executes a command and monitors its stdout stream for continuous output.
+ * This is intended for long-running processes.
+ * See: https://gjs.guide/guides/gio/subprocesses.html#communicating-with-processes
+ *
+ * @param {Gio.Subprocess|null} subproc - An existing subprocess to use, or null to spawn a new one.
+ * @param {string[]} argv - The command and arguments to execute.
+ * @param {function(string): void} outCallback - Callback invoked for each line of output from stdout.
+ * @param {function(Gio.OutputStream): void|null} [inCallback=null] - Optional callback to write to the process's stdin pipe.
+ * @param {Gio.Cancellable|null} [cancellable=null] - Optional cancellable to terminate the process.
+ * @throws {Error} Throws an error if the subprocess fails to spawn.
  */
-export function execCommandAndMonitor(proc, argv, outCallback, inCallback = null, cancellable = null) {
+export function execCommandAndMonitor(state, subproc, argv, outCallback, inCallback = null, cancellable = null) {
     let cancelId = 0;
-    let flags =
-        Gio.SubprocessFlags.STDOUT_PIPE |
-        Gio.SubprocessFlags.STDERR_PIPE;
+    let flags = Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE;
 
     if (inCallback !== null) flags |= Gio.SubprocessFlags.STDIN_PIPE;
 
-    proc = proc ? proc : new Gio.Subprocess({ argv, flags });
-    proc.init(cancellable);
+    // 1. Create the Launcher and configure environment
+    const launcher = new Gio.SubprocessLauncher({ flags });
+    launcher.setenv('LC_ALL', 'C', true); // Third param 'true' allows overwriting
 
-    if (cancellable instanceof Gio.Cancellable)
-        cancelId = cancellable.connect(() => proc.force_exit());
+    let subprocess;
+    try {
+        // 2. Spawn the actual subprocess using the launcher
+        subprocess = subproc ? subproc : launcher.spawnv(argv);
+        state.addProcess(subprocess);
+    } catch (err) {
+        throw new Error(err);
+    }
 
-    const stdout = proc.get_stdout_pipe();
+    // 3. Connect cancellation to the actual subprocess
+    if (cancellable instanceof Gio.Cancellable) {
+        cancelId = cancellable.connect(() => subprocess.force_exit());
+    }
+
+    // 4. Get pipes from the SUBPROCESS, not the launcher
+    const stdout = subprocess.get_stdout_pipe();
     const stdoutStream = new Gio.DataInputStream({
         base_stream: stdout,
         close_base_stream: true,
     });
-    const stdinStream = inCallback ? proc.get_stdin_pipe() : null;
+    
+    const stdinStream = inCallback ? subprocess.get_stdin_pipe() : null;
 
     try {
-        readOutput(stdoutStream, stdinStream, outCallback, inCallback);
+        _readOutput(stdoutStream, stdinStream, outCallback, inCallback);
     } catch (err) {
-        logErr(err);
+        throw new Error(err);
     } finally {
         if (cancelId > 0) cancellable.disconnect(cancelId);
     }
 }
 
-/***
- * Recursively reads from a Gio.DataInputStream and calls the provided callback function with each line.
- * 
- * @param {Gio.DataInputStream} stdout - The stream to read from
- * @param {Gio.SubprocessStdinPipe | null} stdin - The stream to write to if provided
- * @param {function} outCallback - The callback function to call with each line read from stdout
- * @param {function | null} [inCallback=null] - Optional callback function to write to the process's stdin pipe
+/**
+ * Recursively reads lines from a stream and invokes a callback for each line.
+ * This is a helper for `execCommandAndMonitor` to continuously process stdout.
+ *
+ * @private
+ * @param {Gio.DataInputStream} stdout - The input stream to read from (process stdout).
+ * @param {Gio.OutputStream|null} stdin - The output stream to write to (process stdin).
+ * @param {function(string): void} outCallback - Callback for each line read from stdout.
+ * @param {function(Gio.OutputStream): void|null} inCallback - Callback to write to stdin.
+ * @throws {Error} Throws an error if reading from the stream fails.
  */
-function readOutput(stdout, stdin, outCallback, inCallback) {
+function _readOutput(stdout, stdin, outCallback, inCallback) {
     stdout.read_line_async(
         GLib.PRIORITY_LOW,
         null,
@@ -223,10 +204,10 @@ function readOutput(stdout, stdin, outCallback, inCallback) {
                     }
 
                     // Continue reading from the stream
-                    readOutput(stdout, stdin, outCallback, inCallback);
+                    _readOutput(stdout, stdin, outCallback, inCallback);
                 }
             } catch (err) {
-                logErr(err);
+                throw new Error(err);
             }
         }
     );

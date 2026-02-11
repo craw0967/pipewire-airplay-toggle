@@ -1,11 +1,11 @@
-# pipewire-airplay-toggle Version 8
+# pipewire-airplay-toggle
 # Copyright (C) 2024
 # This file is distributed under the same license as the pipewire-airplay-toggle package.
 #
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: 7\n"
+"Project-Id-Version: 9\n"
 "Report-Msgid-Bugs-To: craw0967.github@protonmail.com\n"
 "POT-Creation-Date: 2025-10-02 16:05-0700\n"
 "PO-Revision-Date: 2025-10-02 16:05-0700\n"
