@@ -14,7 +14,10 @@ export const SettingsMixin = (Base) => class extends Base {
     constructor({ ...args } = {}) {
         super({ ...args });
 
-        this.#settingsHandlers = [];
+        this.#settingsHandlers = {
+            "connects": [],
+            "binds": []
+        };
     }
 
     /**
@@ -69,8 +72,12 @@ export const SettingsMixin = (Base) => class extends Base {
      */
     _disconnectAllSettings() {
         if (this._Settings) {
-            for (const id of this.#settingsHandlers) {
+            for (const id of this.#settingsHandlers.connects) {
                 this._Settings.disconnect(id);
+            }
+            //TODO - confirm correct way to unbind
+            for (const id of this.#settingsHandlers.binds) {
+                this._Settings.unbind(id);
             }
         }
     }

@@ -37,7 +37,7 @@ export default class PipeWireAirPlayToggleExtension extends Extension {
         
         this._indicator = new AirPlayIndicator(this.state);
 
-        this.multiSpeakerMenu = new AirPlayMultiSpeakerMenu(this);
+        this.multiSpeakerMenu = new AirPlayMultiSpeakerMenu(this.state);
     }
 
     /**

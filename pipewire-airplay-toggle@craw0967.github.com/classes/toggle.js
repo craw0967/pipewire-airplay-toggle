@@ -34,10 +34,10 @@ export const AirPlayToggle = GObject.registerClass(
 
             this.state = state;
 
-            this._menu = new AirPlayToggleMenu(extensionObject, this);
-
             this._setInitialState();
             this._connectToggle();
+
+            this._menu = new AirPlayToggleMenu(this.state, this);
         }
 
         /**
@@ -51,11 +51,6 @@ export const AirPlayToggle = GObject.registerClass(
             this._getRaopModuleIdPromise = null;
 
             super.destroy();
-        }
-
-        setIndicatorIcon(icon) {
-            this.gicon = icon;
-            this._menu.setMenuHeader(icon);
         }
 
         setIndicatorIcon(icon) {
@@ -212,7 +207,6 @@ export const AirPlayToggle = GObject.registerClass(
          * @private
          */
         async _toggleAirPlay() {
-            AirPlayToggleExtensionState.updateState('test', this._extensionState.test ? false : true);
             try {
                 const commandArray = [
                     "pactl",

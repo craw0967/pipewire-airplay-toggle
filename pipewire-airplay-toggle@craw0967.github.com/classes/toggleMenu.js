@@ -10,8 +10,9 @@ import { INDICATOR_TEXT } from "../constants/config.js";
 export const AirPlayToggleMenu = class AirPlayToggleMenu {
     _combineModuleId;
 
-    constructor(extensionObject, toggleObject) {
-        this._extensionObject = extensionObject;
+    constructor(state, toggleObject) {
+        this.state = state;
+        this._extensionObject = this.state.getExtensionObject();
 
         this._menu = toggleObject.menu;
 
@@ -37,7 +38,7 @@ export const AirPlayToggleMenu = class AirPlayToggleMenu {
         //this._combinedSpeakersMenuItem?.setIcon(icon); //This works but I need to add an icon file
         this._combinedSpeakersMenuItem.connect('activate', () => this._toggleCombinedSpeakers());
 
-        this._setMenuItemOrnament(this._combinedSpeakersMenuItem, this._extensionObject.settings.get_boolean("combined-speakers"));
+        this._setMenuItemOrnament(this._combinedSpeakersMenuItem, this.state.getSettingsKey("get_boolean", "combined-speakers"));
 
         this._menu.addMenuItem(this._combinedSpeakersMenuItem);
         this._menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
@@ -53,8 +54,8 @@ export const AirPlayToggleMenu = class AirPlayToggleMenu {
     }
 
     _toggleCombinedSpeakers() {
-        const combinedSpeakersEnabled = !this._extensionObject.settings.get_boolean("combined-speakers");
-        this._extensionObject.settings.set_boolean("combined-speakers", combinedSpeakersEnabled);
+        const combinedSpeakersEnabled = !this.state.getSettingsKey("get_boolean", "combined-speakers");
+        this.state.updateSettingsKey("set_boolean", "combined-speakers", combinedSpeakersEnabled);
 
         this._setMenuItemOrnament(this._combinedSpeakersMenuItem, combinedSpeakersEnabled);
 

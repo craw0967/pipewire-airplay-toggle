@@ -29,7 +29,7 @@ import { AirPlayMultiSpeakerControl } from "./multiSpeakerControl.js";
 
 export const AirPlayMultiSpeakerMenu = GObject.registerClass(
     class AirPlayMultiSpeakerMenu extends St.Button { 
-        constructor(extensionObject) {
+        constructor(state) {
             super({
                 child: new St.Icon({icon_name: 'open-menu-symbolic'}),
                 style_class: "icon-button flat",
@@ -39,8 +39,9 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
                 accessible_name: _("Open AirPlay Multi-Speaker Menu"),
             });
 
-            this._extensionObject = extensionObject;
-            this.visible = this._extensionObject.settings.get_boolean('combined-speakers');
+            this.state = state;
+            
+            this.visible = this.state.getSettingsKey("get_boolean", "combined-speakers");
 
             this.QuickSettings = Main.panel.statusArea.quickSettings;
             this._slider = this.QuickSettings?._volumeOutput?._output;
@@ -104,8 +105,7 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
             });
 
             //bind button visibility to 'combined-speakers' setting
-            this._combinedSpeakersBind = this._extensionObject.settings.bind(
-                'combined-speakers',
+            this.state.bindSetting('combined-speakers',
                 this, 
                 'visible',
                 Gio.SettingsBindFlags.DEFAULT
@@ -113,8 +113,6 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
         }
 
         _disconnectEvents() {
-            //TODO - confirm correct way to unbind
-            this._combinedSpeakersBind?.unbind();
             this._slider.menu.disconnect(this._mmbClosedId);
             this.disconnect(this._mmbConnectId);
         }
