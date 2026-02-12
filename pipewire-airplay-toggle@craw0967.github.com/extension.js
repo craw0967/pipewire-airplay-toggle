@@ -35,9 +35,8 @@ export default class PipeWireAirPlayToggleExtension extends Extension {
         this.state = new AirPlayToggleExtensionState();
         this.state.setExtensionObject(this);
         
-        this._indicator = new AirPlayIndicator(this.state);
-
-        this.multiSpeakerMenu = new AirPlayMultiSpeakerMenu(this.state);
+        this._indicator = new AirPlayIndicator({ state: this.state });
+        this._multiSpeakerMenu = new AirPlayMultiSpeakerMenu({ state: this.state });
     }
 
     /**
@@ -46,8 +45,8 @@ export default class PipeWireAirPlayToggleExtension extends Extension {
      */
     disable() {
         // https://gjs.guide/extensions/review-guidelines/review-guidelines.html#destroy-all-objects
-        this.multiSpeakerMenu?.destroy();
-        this.multiSpeakerMenu = null;
+        this._multiSpeakerMenu?.destroy();
+        this._multiSpeakerMenu = null;
         
         this._indicator?.destroy();
         this._indicator = null;

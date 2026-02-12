@@ -19,24 +19,25 @@ export const AirPlayIndicator = GObject.registerClass(
         /**
          * @constructor
          */
-        constructor(state) {
-            super();
+        constructor({ ...args }) {
+            const { state, ...addArgs } = args;
+            super({ ...addArgs });
             
             this.state = state;
+            this._addIndicatorIconToState();
+
             this._indicator = this._addIndicator();
+            this._indicator.gicon = this.state.getStateKey("indicatorGIcon");
 
-            this._toggle = new AirPlayToggle(this.state);
-
-            this._setIndicatorIcon();
-            this._setIndicatorIconVisibility();
-
-            this._connectSettings();
-
+            this._toggle = new AirPlayToggle({ state: this.state });
+            
             this.quickSettingsItems.push(this._toggle);
-
             Main.panel.statusArea.quickSettings.addExternalIndicator(
                 this
             );
+
+            this._setIndicatorIconVisibility();
+            this._connectSettings();
         }
 
         /**
@@ -61,6 +62,18 @@ export const AirPlayIndicator = GObject.registerClass(
         }
 
         /**
+         * Gets the currently selected icon for the indicator and toggle switch.
+         * @private
+         * @returns {Gio.FileIcon} - The icon that should be used for the indicator and toggle switch.
+         */
+        _addIndicatorIconToState() {
+            const iconName = this.state.getSettingsKey("get_string", "indicator-icon")?.length > 0 ? INDICATOR_ICON_MAP[this.state.getSettingsKey("get_string", "indicator-icon")] : INDICATOR_ICON_MAP["option0"];
+            const iconFile = Gio.File.new_for_path(this.state.getExtensionObject().dir.get_child("icons").get_path() + "/" + iconName);
+
+            this.state.updateStateKey('indicatorGIcon', Gio.FileIcon.new(iconFile));
+        };
+
+        /**
          * Connects to settings changes for the indicator icon and visibility.
          * @private
          */
@@ -78,28 +91,6 @@ export const AirPlayIndicator = GObject.registerClass(
                     this._setIndicatorIconVisibility();
                 }
             );
-        }
-
-        /**
-         * Gets the currently selected icon for the indicator and toggle switch.
-         * @private
-         * @returns {Gio.FileIcon} - The icon that should be used for the indicator and toggle switch.
-         */
-        _getIcon() {
-            const iconName = this.state.getSettingsKey("get_string", "indicator-icon")?.length > 0 ? INDICATOR_ICON_MAP[this.state.getSettingsKey("get_string", "indicator-icon")] : INDICATOR_ICON_MAP["option0"];
-            const iconFile = Gio.File.new_for_path(this.state.getExtensionObject().dir.get_child("icons").get_path() + "/" + iconName);
-            const icon = Gio.FileIcon.new(iconFile);
-            
-            return icon;
-        };
-
-        /**
-         * Updates the icon of the indicator and the toggle switch.
-         * @private
-         */
-        _setIndicatorIcon() {
-            this._indicator.gicon = this._getIcon();
-            this._toggle.gicon = this._getIcon();
         }
 
         /**

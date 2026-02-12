@@ -5,7 +5,7 @@ import * as QuickSettings from "resource:///org/gnome/shell/ui/quickSettings.js"
 import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
 
 import { logErr } from "../functions/logs.js";
-import { asyncExecCommandAndReadOutput, execCommandAndMonitor, detectAudioServer } from "../functions/utils.js";
+import { asyncExecCommandAndReadOutput, execCommandAndMonitor, detectAudioServer, composeMixins } from "../functions/utils.js";
 import { 
     INDICATOR_TEXT,
     PW_MISSING_TITLE,
@@ -18,26 +18,28 @@ import { AirPlayToggleMenu } from "./toggleMenu.js";
  * Class representing a QuickSettings Quick Toggle for AirPlay.
  * @extends QuickSettings.QuickMenuToggle
  */
-export const AirPlayToggle = GObject.registerClass(
-    class AirPlayToggle extends QuickSettings.QuickMenuToggle {
+export const AirPlayToggleBase = GObject.registerClass(
+    class AirPlayToggleBase extends QuickSettings.QuickMenuToggle {
         _duplicateRemovalTimeout;
         _getRaopModuleIdPromise;
 
         /**
          * @constructor
          */
-        constructor(state) {
-            super({
+        constructor({ ...args } = {}) {
+            const { state, ...addArgs } = args;
+            super({ 
+                ...addArgs,
                 title: _(INDICATOR_TEXT),
                 toggleMode: false,
             });
 
             this.state = state;
+            
+            this._setIndicatorIcon(this.state.getStateKey("indicatorGIcon"));
 
             this._setInitialState();
-            this._connectToggle();
-
-            this._menu = new AirPlayToggleMenu(this.state, this);
+            this._connectToggleSignals();
         }
 
         /**
@@ -45,17 +47,15 @@ export const AirPlayToggle = GObject.registerClass(
          * This should be called when the extension is being disabled or unloaded.
          */
         destroy() {
-            this._menu?.destroy();
-
             this._duplicateRemovalTimeout = null;
             this._getRaopModuleIdPromise = null;
 
             super.destroy();
         }
 
-        setIndicatorIcon(icon) {
+        _setIndicatorIcon(icon) {
             this.gicon = icon;
-            this._menu.setMenuHeader(icon);
+            this._setMenuHeader(icon);
         }
 
         /**
@@ -77,7 +77,6 @@ export const AirPlayToggle = GObject.registerClass(
             } else {
                 this._notifyMissingDependencies();
             }
-
         }
 
         /**
@@ -85,7 +84,7 @@ export const AirPlayToggle = GObject.registerClass(
          * When clicked, the toggle button will attempt to toggle the RAOP (AirPlay) module.
          * @private
          */
-        _connectToggle() {
+        _connectToggleSignals() {
             this.state.connectSignal(this, "clicked", () => {
                 if (this.state.getStateKey("audioServerInstalled")) {
                     this._toggleAirPlay();
@@ -225,7 +224,7 @@ export const AirPlayToggle = GObject.registerClass(
                     output[0].length > 0
                 ) {
                     this.state.updateStateKey("raopModuleId", output[0]);
-                }
+                } // The raopModuleId var gets nullifed in the _processModuleEvent function
                 
                 this._notifyMissingDependencies();
 
@@ -264,6 +263,10 @@ export const AirPlayToggle = GObject.registerClass(
          */
         async _processModuleEvent(line) {
             if(line.includes("module")) {
+                if (this.state.getStateKey("combineModuleId") && line.includes(this.state.getStateKey("combineModuleId")) && line.includes("remove")) {
+                    this.state.updateStateKey("combineModuleId", null);
+                }
+
                 // State 1: We know the module ID, watch for its removal
                 if (this.state.getStateKey("raopModuleId") && line.includes(this.state.getStateKey("raopModuleId")) && line.includes("remove")) {
                     this.state.updateStateKey("raopModuleId", null);
@@ -458,3 +461,12 @@ export const AirPlayToggle = GObject.registerClass(
         }
     }
 );
+
+export const AirPlayToggle = GObject.registerClass(class AirPlayToggle extends composeMixins(
+    AirPlayToggleBase,
+    AirPlayToggleMenu
+) {
+    constructor({ ...args } = {}) {
+        super({ ...args });
+    }
+});

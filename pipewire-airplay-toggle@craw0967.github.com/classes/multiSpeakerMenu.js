@@ -18,7 +18,6 @@
 */
 
 import GObject from "gi://GObject";
-import Gio from "gi://Gio";
 import St from "gi://St";
 
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
@@ -29,8 +28,10 @@ import { AirPlayMultiSpeakerControl } from "./multiSpeakerControl.js";
 
 export const AirPlayMultiSpeakerMenu = GObject.registerClass(
     class AirPlayMultiSpeakerMenu extends St.Button { 
-        constructor(state) {
+        constructor({ ...args }) {
+            const { state, ...addArgs } = args;
             super({
+                ...addArgs,
                 child: new St.Icon({icon_name: 'open-menu-symbolic'}),
                 style_class: "icon-button flat",
                 can_focus: true,
@@ -40,8 +41,8 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
             });
 
             this.state = state;
-            
-            this.visible = this.state.getSettingsKey("get_boolean", "combined-speakers");
+
+            this._setMultiSpeakerMenuVisibility();
 
             this.QuickSettings = Main.panel.statusArea.quickSettings;
             this._slider = this.QuickSettings?._volumeOutput?._output;
@@ -104,12 +105,32 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
                 this.revert(this._slider);
             });
 
-            //bind button visibility to 'combined-speakers' setting
-            this.state.bindSetting('combined-speakers',
-                this, 
-                'visible',
-                Gio.SettingsBindFlags.DEFAULT
-            );
+            //Connect button visibility to 'combined-speakers' setting
+            this.state.connectSetting('combined-speakers', () => {
+                this._setMultiSpeakerMenuVisibility();
+            });
+
+            //Update button visibility if the toggle button is checked
+            this.state.connectSignal(this.state, 'pipewire-airplay-toggle-state-changed', (obj, key) => {
+                console.log('the key is - ' + key);
+                if (key === 'toggleIsChecked') {
+                    this._setMultiSpeakerMenuVisibility();
+                }
+            });
+        }
+
+        /**
+         * Sets the visibility of the multi speaker menu based on extension settings.
+         * If the combined-speakers setting is enabled and the toggle button is checked, then show the menu button
+         * Otherwise, hide the menu button
+         * @private
+         */
+        _setMultiSpeakerMenuVisibility() {
+            if (this.state.getSettingsKey("get_boolean", "combined-speakers") === true && this.state.getStateKey("toggleIsChecked") === true) {
+               this.visible = true;
+            } else {
+               this.visible = false;
+            }
         }
 
         _disconnectEvents() {

@@ -8,12 +8,20 @@ import { composeMixins } from "../functions/utils.js";
 
 // Set state defaults
 const StateData = {
-    toggleChecked: false,
+    //Toggle Variables
+    toggleIsChecked: false,
+
+    //Indicator Variables
+    indicatorGIcon: null,
+
+    //PipeWire/PulseAudio Variables
     audioServerInstalled: false,
     raopModuleInstalled: false,
     raopModuleId: null,
+
+    //Sinks Variables
     combineModuleId: null,
-    airplaySpeakers: []
+    airplaySpeakers: [],
 };
 
 /**

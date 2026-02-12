@@ -14,10 +14,7 @@ export const SettingsMixin = (Base) => class extends Base {
     constructor({ ...args } = {}) {
         super({ ...args });
 
-        this.#settingsHandlers = {
-            "connects": [],
-            "binds": []
-        };
+        this.#settingsHandlers = [];
     }
 
     /**
@@ -34,7 +31,7 @@ export const SettingsMixin = (Base) => class extends Base {
 
         try {
             const id = this._Settings.connect(`changed::${key}`, callback);
-            this.#settingsHandlers.connects.push(id);
+            this.#settingsHandlers.push(id);
 
             return id;
         } catch (err) {
@@ -58,7 +55,7 @@ export const SettingsMixin = (Base) => class extends Base {
 
         try {
             const id = this._Settings.bind(key, obj, property, flags);
-            this.#settingsHandlers.binds.push(id);
+            this.#settingsHandlers.push(id);
 
             return id;
         } catch (err) {
@@ -72,12 +69,8 @@ export const SettingsMixin = (Base) => class extends Base {
      */
     _disconnectAllSettings() {
         if (this._Settings) {
-            for (const id of this.#settingsHandlers.connects) {
+            for (const id of this.#settingsHandlers) {
                 this._Settings.disconnect(id);
-            }
-            //TODO - confirm correct way to unbind
-            for (const id of this.#settingsHandlers.binds) {
-                this._Settings.unbind(id);
             }
         }
     }
