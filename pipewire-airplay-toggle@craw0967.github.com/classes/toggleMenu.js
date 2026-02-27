@@ -14,6 +14,7 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
         super({ ...args });
 
         this._extensionObject = this.state ? this.state.getExtensionObject() : null;
+        this.state.updateGIcon('multiStreamGIcon', 'media-podcast-symbolic.svg');
 
         this._createMenuItems();
         this._createSettingsItems();
@@ -38,8 +39,9 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
     }
 
     _createMenuItems() {
-        this._combinedSpeakersMenuItem = new PopupMenu.PopupImageMenuItem('Enable Streaming to Multiple Speakers', null);
-        //this._combinedSpeakersMenuItem?.setIcon(icon); //This works but I need to add an icon file
+        this._combinedSpeakersMenuItem = new PopupMenu.PopupImageMenuItem("Enable Streaming to Multiple Speakers", this.state.getStateKey("multiStreamGIcon"));
+        
+        //this._combinedSpeakersMenuItem?.setIcon(); //This works but I need to add an icon file
         this.state.connectSignal(this._combinedSpeakersMenuItem, "activate", () => {
             // Update the setting to trigger the setting change event. Setting change event is connected in this._connectSettings()
             this.state.updateSettingsKey("set_boolean", "combined-speakers", !this.state.getSettingsKey("get_boolean", "combined-speakers"));
@@ -92,7 +94,7 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
                 'pactl', 
                 'load-module', 
                 'module-combine-sink', 
-                'sink_name="AirPlay Combined Speakers"', //TODO - Move this name to constants and use to label menu(s) too
+                'sink_name="AirPlay-Enabled Speakers"', //TODO - Move this name to constants and use to label menu(s) too
                 'rate=44100', 
                 'channels=2', 
                 'channel_map=stereo', 
@@ -141,7 +143,7 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
 
             if (output && output.length > 0) {
                 const filtered = output.filter((line) => {
-                   return line.includes("module-combine-sink") && line.includes("AirPlay Combined Speakers")
+                   return line.includes("module-combine-sink") && line.includes("AirPlay-Enabled Speakers")
                 });
 
                 if (filtered?.length > 0 && filtered[0]) {

@@ -1,7 +1,6 @@
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 import GObject from "gi://GObject";
-import Gio from "gi://Gio";
 
 import * as QuickSettings from "resource:///org/gnome/shell/ui/quickSettings.js";
 import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
@@ -62,15 +61,12 @@ export const AirPlayIndicator = GObject.registerClass(
         }
 
         /**
-         * Gets the currently selected icon for the indicator and toggle switch.
+         * Updates the state with the currently selected icon for the indicator and toggle switch.
          * @private
-         * @returns {Gio.FileIcon} - The icon that should be used for the indicator and toggle switch.
          */
         _addIndicatorIconToState() {
             const iconName = this.state.getSettingsKey("get_string", "indicator-icon")?.length > 0 ? INDICATOR_ICON_MAP[this.state.getSettingsKey("get_string", "indicator-icon")] : INDICATOR_ICON_MAP["option0"];
-            const iconFile = Gio.File.new_for_path(this.state.getExtensionObject().dir.get_child("icons").get_path() + "/" + iconName);
-
-            this.state.updateStateKey('indicatorGIcon', Gio.FileIcon.new(iconFile));
+            this.state.updateGIcon('indicatorGIcon', iconName);
         };
 
         /**
@@ -83,7 +79,9 @@ export const AirPlayIndicator = GObject.registerClass(
             // If we update the state variable, it will trigger an event and we can run logic based on that event, but we could just connect a function to the setting change or read the setting directly, which is what I'm doing in the most recent version
 
             this.state.connectSetting("indicator-icon", () => {
-                    this._setIndicatorIcon();
+                    this._addIndicatorIconToState();
+                    this._indicator.gicon = this.state.getStateKey("indicatorGIcon");
+                    this._toggle._setIndicatorIcon();
                 }
             );
             

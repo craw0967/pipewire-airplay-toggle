@@ -1,8 +1,10 @@
 import GObject from "gi://GObject";
+import Gio from "gi://Gio";
 
 import { SignalHandlerMixin } from "./signalHandlerMixin.js";
 import { SettingsMixin } from "./settingsMixin.js";
 import { ProcessHandlerMixin } from "./processHandlerMixin.js";
+import { AudioServerMixin } from "./audioServerMixin.js";
 
 import { composeMixins } from "../functions/utils.js";
 
@@ -13,6 +15,9 @@ const StateData = {
 
     //Indicator Variables
     indicatorGIcon: null,
+    speakerEnabledGIcon: null,
+    speakerDisabledGIcon: null,
+    multiStreamGIcon: null,
 
     //PipeWire/PulseAudio Variables
     audioServerInstalled: false,
@@ -21,7 +26,8 @@ const StateData = {
 
     //Sinks Variables
     combineModuleId: null,
-    airplaySpeakers: [],
+    raopSinksList: [],
+    raopSinksMap: {}
 };
 
 /**
@@ -118,10 +124,12 @@ const State = GObject.registerClass({
      * @param {string} key - The key to update.
      * @param {*} value - The new value.
      */
-    updateStateKey(key, value) {
+    updateStateKey(key, value, notify = true) {
         this.#updateStateKey(key, value);
         // Notify child components that the state has been updated
-        this.#fireStateUpdateNotifyEvent(key);
+        if (notify) {
+            this.#fireStateUpdateNotifyEvent(key);
+        }
     }
 
     /* *******
@@ -196,6 +204,14 @@ const State = GObject.registerClass({
     getExtensionObject() {
         return this.#extensionObject;
     }
+
+    /* *******
+     * UI Functions
+     * *******/
+    updateGIcon(key, filename) {
+        const iconFile = Gio.File.new_for_path(this.getExtensionObject().dir.get_child("icons").get_path() + "/" + filename);
+        this.updateStateKey(key, Gio.FileIcon.new(iconFile));
+    }
 });
 
 export const AirPlayToggleExtensionState = GObject.registerClass(class AirPlayToggleExtensionState extends composeMixins(
@@ -203,4 +219,5 @@ export const AirPlayToggleExtensionState = GObject.registerClass(class AirPlayTo
     SignalHandlerMixin,
     SettingsMixin,
     ProcessHandlerMixin,
+    AudioServerMixin
 ) {});

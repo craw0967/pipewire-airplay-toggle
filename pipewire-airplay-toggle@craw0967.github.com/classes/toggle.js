@@ -36,7 +36,7 @@ export const AirPlayToggleBase = GObject.registerClass(
 
             this.state = state;
             
-            this._setIndicatorIcon(this.state.getStateKey("indicatorGIcon"));
+            this._setIndicatorIcon();
 
             this._setInitialState();
             this._connectToggleSignals();
@@ -53,9 +53,9 @@ export const AirPlayToggleBase = GObject.registerClass(
             super.destroy();
         }
 
-        _setIndicatorIcon(icon) {
-            this.gicon = icon;
-            this._setMenuHeader(icon);
+        _setIndicatorIcon() {
+            this.gicon = this.state.getStateKey("indicatorGIcon");
+            this._setMenuHeader(this.gicon);
         }
 
         /**
@@ -71,6 +71,7 @@ export const AirPlayToggleBase = GObject.registerClass(
                 
                 if(this.checked) {
                     this.state.updateStateKey("raopModuleInstalled", true);
+                    this.state._updateSinksList();
                 }
 
                 this._monitorModuleEvents();
@@ -271,6 +272,8 @@ export const AirPlayToggleBase = GObject.registerClass(
                 if (this.state.getStateKey("raopModuleId") && line.includes(this.state.getStateKey("raopModuleId")) && line.includes("remove")) {
                     this.state.updateStateKey("raopModuleId", null);
                     this.checked = false;
+                    this.state.updateStateKey("raopSinksList", []);
+                    this.state.updateStateKey("raopSinksMap", {});
                 
                 // State 2: New module loaded, check if it's the one we want
                 } else {
@@ -283,6 +286,7 @@ export const AirPlayToggleBase = GObject.registerClass(
                     if(this.state.getStateKey("raopModuleId") &&
                         line.includes(this.state.getStateKey("raopModuleId")) 
                     ){
+                        this.state._updateSinksList();
                         this.checked = true;
                     }
                 }

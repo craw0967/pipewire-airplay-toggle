@@ -7,9 +7,11 @@ export const AirPlayOutputSlider = GObject.registerClass(
     class AirPlayOutputSlider extends QuickSettings.QuickSlider {
         constructor() {
             super({
+                icon_label: "Mute/Unmute",
                 icon_name:'audio-volume-muted-symbolic',
                 icon_reactive: true,
-                menu_enabled: false
+                menu_enabled: false,
+                x_expand: true
             });
 
             this._iconButton.remove_style_class_name('flat');
@@ -34,8 +36,21 @@ export const AirPlayOutputSlider = GObject.registerClass(
                 toggleMode: true,
                 accessible_name: _("Enable/Disable Right Channel"),
             })
+            /*
+            this._enableSpeakerButton = new St.Button({
+                child: new St.Icon({icon_name: 'object-select-symbolic'}),
+                //label: "Enable", //Can't have both label and icon like this
+                style_class: "icon-button pw-ap-toggle-icon-button",
+                can_focus: true,
+                x_expand: false,
+                y_expand: false,
+                visible: true,
+                toggleMode: true,
+                accessible_name: _("Enable/Disable Speaker"),
+            })*/
             this.child.add_child(this._leftChannelButton);
             this.child.add_child(this._rightChannelButton);
+            //this.child.add_child(this._enableSpeakerButton);
 
         }
 
@@ -44,6 +59,8 @@ export const AirPlayOutputSlider = GObject.registerClass(
             this._leftChannelButton = null;
             this._rightChannelButton?.destroy();
             this._rightChannelButton = null;
+            //this._enableSpeakerButton?.destroy();
+            //this._enableSpeakerButton = null;
             
             super.destroy();
         }

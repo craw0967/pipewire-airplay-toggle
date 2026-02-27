@@ -116,7 +116,7 @@ export async function asyncExecCommandAndReadOutput(argv, input = null, cancella
         return stdout.trim().split("\n");
         
     } catch (err) {
-        throw new Error(err);
+        throw new Error(err); //TODO - Does this need to be thrown as a Gio.IOErrorEnum all the way?
     } finally {
         if (cancelId > 0) cancellable.disconnect(cancelId);
     }
