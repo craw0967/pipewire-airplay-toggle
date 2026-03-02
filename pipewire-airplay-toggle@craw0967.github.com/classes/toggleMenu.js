@@ -1,11 +1,7 @@
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 
-import { logErr } from "../functions/logs.js";
-import { asyncExecCommandAndReadOutput } from "../functions/utils.js";
 import { INDICATOR_TEXT } from "../constants/config.js";
-
-//import { AirPlayToggleExtensionState } from "./state.js";
 
 export const AirPlayToggleMenu = (Base) => class extends Base {
     _combinedSpeakersMenuItem;
@@ -13,8 +9,10 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
     constructor({ ...args } = {}) {
         super({ ...args });
 
+        // this.state inherited from AirPlayToggleBase
+        
         this._extensionObject = this.state ? this.state.getExtensionObject() : null;
-        this.state.updateGIcon('multiStreamGIcon', 'media-podcast-symbolic.svg');
+        this.state.updateGIcon("multiStreamGIcon", "media-podcast-symbolic.svg");
 
         this._createMenuItems();
         this._createSettingsItems();
@@ -40,12 +38,6 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
 
     _createMenuItems() {
         this._combinedSpeakersMenuItem = new PopupMenu.PopupImageMenuItem("Enable Streaming to Multiple Speakers", this.state.getStateKey("multiStreamGIcon"));
-        
-        //this._combinedSpeakersMenuItem?.setIcon(); //This works but I need to add an icon file
-        this.state.connectSignal(this._combinedSpeakersMenuItem, "activate", () => {
-            // Update the setting to trigger the setting change event. Setting change event is connected in this._connectSettings()
-            this.state.updateSettingsKey("set_boolean", "combined-speakers", !this.state.getSettingsKey("get_boolean", "combined-speakers"));
-        });
 
         this._setMenuItemOrnament(this._combinedSpeakersMenuItem, this.state.getSettingsKey("get_boolean", "combined-speakers"));
 
@@ -54,7 +46,7 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
     }
 
     _createSettingsItems() {
-        const settingsItem = this.menu.addAction('Extension Settings',
+        const settingsItem = this.menu.addAction("Extension Settings", // TODO - Add text to constants and prep for translation
             () => this._extensionObject.openPreferences());
 
         // Ensure the settings are unavailable when the screen is locked
@@ -64,13 +56,17 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
 
     _connectToggleMenuSignals() {
         this.state.connectSignal(this, "notify::checked", () => {
-            this.state.updateStateKey("toggleIsChecked", this.checked);
             this._toggleCombinedSpeakers();
+        });
+
+        this.state.connectSignal(this._combinedSpeakersMenuItem, "activate", () => {
+            // Update the setting to trigger the setting change event. Setting change event is connected in this._connectSettings()
+            this.state.updateSettingsKey("set_boolean", "combined-speakers", !this.state.getSettingsKey("get_boolean", "combined-speakers"));
         });
     }
 
     _connectToggleMenuSettings() {
-        this.state.connectSetting('combined-speakers', () => {
+        this.state.connectSetting("combined-speakers", () => {
             this._toggleCombinedSpeakers();
         });
     }
@@ -80,83 +76,11 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
         
         this._setMenuItemOrnament(this._combinedSpeakersMenuItem, this.state.getSettingsKey("get_boolean", "combined-speakers"));
         
-        await this._checkForCombinedSpeakersModule();
-        await this._toggleMultiSpeakers(combinedSpeakersEnabled);
+        await this.state.toggleCombinedSinkModule(combinedSpeakersEnabled);
     }
 
     _setMenuItemOrnament(menuItem, enabled) {
         menuItem.setOrnament(enabled ? PopupMenu.Ornament.CHECK : PopupMenu.Ornament.NONE);
     }
 
-    async _toggleMultiSpeakers(enabled) {
-        try {
-            const commandArray = enabled && !this.state.getStateKey("combineModuleId") ? [
-                'pactl', 
-                'load-module', 
-                'module-combine-sink', 
-                'sink_name="AirPlay-Enabled Speakers"', //TODO - Move this name to constants and use to label menu(s) too
-                'rate=44100', 
-                'channels=2', 
-                'channel_map=stereo', 
-                'latency_compensate=true', 
-                'sinks=""'
-            ] : [
-                'pactl', 
-                'unload-module', 
-                `${this.state.getStateKey("combineModuleId")}` // DO NOT unload 'module-combine-sink'. The user may have loaded more than one combined sink.
-            ];
-
-            let output = await asyncExecCommandAndReadOutput(
-                commandArray,
-                null,
-                null
-            );
-
-            if (!this.state.getStateKey("combineModuleId") &&
-                output &&
-                output.length > 0 &&
-                output[0].length > 0
-            ) {
-                this.state.updateStateKey("combineModuleId", output[0]);
-            } // The combineModuleId var gets nullifed in the toggle.js _processModuleEvent function
-
-            console.log('the combine module id is - ' + this.state.getStateKey("combineModuleId"));
-
-        } catch (err) {
-            logErr(this.state, err);
-        }
-    }
-
-    async _checkForCombinedSpeakersModule() {
-        try {
-            const commandArray = [
-                "pactl", 
-                "list", 
-                "modules", 
-                "short"
-            ];
-            const output = await asyncExecCommandAndReadOutput(
-                commandArray,
-                null,
-                null
-            );
-
-            if (output && output.length > 0) {
-                const filtered = output.filter((line) => {
-                   return line.includes("module-combine-sink") && line.includes("AirPlay-Enabled Speakers")
-                });
-
-                if (filtered?.length > 0 && filtered[0]) {
-                    this.state.updateStateKey("combineModuleId", filtered[0].split("\t")[0]);
-                } else {
-                    this.state.updateStateKey("combineModuleId", null);
-                }
-            }
-
-        } catch (err) {
-            logErr(this.state, err);
-        } finally {
-            this._getRaopModuleIdPromise = null;
-        }
-    }
 }

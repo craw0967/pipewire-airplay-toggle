@@ -1,31 +1,35 @@
 import GObject from "gi://GObject";
-import Gio from "gi://Gio";
 
 import { SignalHandlerMixin } from "./signalHandlerMixin.js";
 import { SettingsMixin } from "./settingsMixin.js";
 import { ProcessHandlerMixin } from "./processHandlerMixin.js";
 import { AudioServerMixin } from "./audioServerMixin.js";
 
-import { composeMixins } from "../functions/utils.js";
+import { composeMixins, getGIcon } from "../functions/utils.js";
 
 // Set state defaults
 const StateData = {
-    //Toggle Variables
-    toggleIsChecked: false,
-
-    //Indicator Variables
+    //Icons
     indicatorGIcon: null,
     speakerEnabledGIcon: null,
     speakerDisabledGIcon: null,
     multiStreamGIcon: null,
+    volume0GIcon: null,
+    volume1GIcon: null,
+    volume2GIcon: null,
+    volume3GIcon: null,
+    volume4GIcon: null,
 
     //PipeWire/PulseAudio Variables
     audioServerInstalled: false,
     raopModuleInstalled: false,
     raopModuleId: null,
+    modulesList: [],
 
     //Sinks Variables
-    combineModuleId: null,
+    currentCombineModuleId: null,
+    newCombineModuleId: null,
+    combinedSinks: [],
     raopSinksList: [],
     raopSinksMap: {}
 };
@@ -36,11 +40,11 @@ const StateData = {
  * @class State
  * @extends GObject.Object
  * @-side-effect-free
- * @-signals 'pipewire-airplay-toggle-state-changed'
+ * @-signals "pipewire-airplay-toggle-state-changed"
  */
 const State = GObject.registerClass({
     Signals: {
-        'pipewire-airplay-toggle-state-changed': {
+        "pipewire-airplay-toggle-state-changed": {
             param_types: [GObject.TYPE_STRING], // The key of the state that changed
         },
     }
@@ -98,7 +102,7 @@ const State = GObject.registerClass({
      */
     #fireStateUpdateNotifyEvent(key) {
         // Emit an event signal with the updated key name
-        this.emit('pipewire-airplay-toggle-state-changed', key);
+        this.emit("pipewire-airplay-toggle-state-changed", key);
     }
 
     /**
@@ -159,23 +163,23 @@ const State = GObject.registerClass({
 
     /**
      * Calls a method on the settings object to update a value.
-     * @param {string} method - The settings method to call (e.g., 'set_boolean').
+     * @param {string} method - The settings method to call (e.g., "set_boolean").
      * @param  {...any} args - The arguments for the settings method.
      */
     updateSettingsKey(method, ...args) {
-        if (this.#settings && typeof this.#settings[method] === 'function') {
+        if (this.#settings && typeof this.#settings[method] === "function") {
             this.#settings[method](...args);
         }
     }
 
     /**
      * Calls a method on the settings object to get a value.
-     * @param {string} method - The settings method to call (e.g., 'get_boolean').
+     * @param {string} method - The settings method to call (e.g., "get_boolean").
      * @param  {...any} args - The arguments for the settings method.
      * @returns {*} The value from the settings, or null if an error occurs.
      */
     getSettingsKey(method, ...args) {
-        if (this.#settings && typeof this.#settings[method] === 'function') {
+        if (this.#settings && typeof this.#settings[method] === "function") {
             return this.#settings[method](...args);
         }
 
@@ -209,8 +213,7 @@ const State = GObject.registerClass({
      * UI Functions
      * *******/
     updateGIcon(key, filename) {
-        const iconFile = Gio.File.new_for_path(this.getExtensionObject().dir.get_child("icons").get_path() + "/" + filename);
-        this.updateStateKey(key, Gio.FileIcon.new(iconFile));
+        this.updateStateKey(key, getGIcon(this, filename));
     }
 });
 

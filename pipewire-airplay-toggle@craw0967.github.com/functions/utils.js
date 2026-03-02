@@ -22,40 +22,84 @@ export function composeMixins(base, ...mixins) {
     return mixins.reduce((cls, mixin) => mixin(cls), base);
 }
 
-/**
- * Detects if PipeWire or PulseAudio is installed and returns which one.
- * @throws {Error} Throws an error if the underlying `pactl info` command fails.
- * @returns {Promise<string|null>} A promise that resolves to "pipewire", "pulseaudio", or null if neither is found.
- */
-export async function detectAudioServer() {
-    try {
-        const commandArray = [
-            "pactl", 
-            "info"
-        ];
-        const output = await asyncExecCommandAndReadOutput(
-            commandArray,
-            null,
-            null
-        );
+export function getGIcon(state, iconFileName) {
+    const iconFile = Gio.File.new_for_path(state.getExtensionObject().dir.get_child("icons").get_path() + "/" + iconFileName);
+    return Gio.FileIcon.new(iconFile);
+}
 
-        if (output && output.length > 0) {
-            const filtered = output.filter((line) => {
-                return line.toLowerCase().includes("pipewire") || 
-                       line.toLowerCase().includes("pulseaudio");
-            });
-            
-            if (filtered.length > 0) {
-                return filtered[0].toLowerCase().includes("pipewire") 
-                    ? "pipewire" 
-                    : "pulseaudio";
+
+/* export function deepMerge(target, concatArrays = false, ...sources) {
+    // If no sources left to merge, return the target
+    if (!sources.length) return target;
+
+    const cache = new WeakMap(); // Track merged objects to avoid circular references
+    
+    // Take the first source to merge into the target
+    const source = sources.shift();
+
+    if (cache.has(source)) return cache.get(source);
+    
+    // Only merge if both target and source are objects
+    if (isObject(target) && isObject(source)) {
+        // Iterate over each key in the source
+        for (const key in source) {
+            // Skip inherited properties (avoid prototype pollution)
+            if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+        
+            // If the source value is an object, recursively merge
+            if (isObject(source[key])) {
+                // If target doesn't have the key, initialize it as an empty object
+                if (!target[key]) Object.assign(target, { [key]: {} });
+                // Recursively merge the nested objects
+                deepMerge(target[key], source[key]);
+            } else if (Array.isArray(target) && Array.isArray(source) && concatArrays) {
+                // Merge arrays by concatenation (or replace with source)
+                target = [...target, ...source] 
+            } else {
+                // Otherwise, overwrite the target value with the source value
+                Object.assign(target, { [key]: source[key] });
             }
         }
-
-        return null;
-    } catch (err) {
-        throw new Error(err);
     }
+ 
+    // Merge the remaining sources
+    return deepMerge(target, ...sources);
+} */
+
+export function deepMerge(target, ...sources) {
+  // If no sources left to merge, return the target
+  if (!sources.length) return target;
+ 
+  // Take the first source to merge into the target
+  const source = sources.shift();
+ 
+  // Only merge if both target and source are objects
+  if (isObject(target) && isObject(source)) {
+    // Iterate over each key in the source
+    for (const key in source) {
+      // Skip inherited properties (avoid prototype pollution)
+      if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+ 
+      // If the source value is an object, recursively merge
+      if (isObject(source[key])) {
+        // If target doesn't have the key, initialize it as an empty object
+        if (!target[key]) Object.assign(target, { [key]: {} });
+        // Recursively merge the nested objects
+        deepMerge(target[key], source[key]);
+      } else {
+        // Otherwise, overwrite the target value with the source value
+        Object.assign(target, { [key]: source[key] });
+      }
+    }
+  }
+ 
+  // Merge the remaining sources
+  return deepMerge(target, ...sources);
+}
+
+// Helper: Check if a value is a plain object (not null/array/other types)
+function isObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -77,7 +121,7 @@ export async function asyncExecCommandAndReadOutput(argv, input = null, cancella
 
     // 1. Setup the Launcher
     const launcher = new Gio.SubprocessLauncher({ flags });
-    launcher.setenv('LC_ALL', 'C', true);
+    launcher.setenv("LC_ALL", "C", true);
 
     let subprocess;
     try {
@@ -142,7 +186,7 @@ export function execCommandAndMonitor(state, subproc, argv, outCallback, inCallb
 
     // 1. Create the Launcher and configure environment
     const launcher = new Gio.SubprocessLauncher({ flags });
-    launcher.setenv('LC_ALL', 'C', true); // Third param 'true' allows overwriting
+    launcher.setenv("LC_ALL", "C", true); // Third param 'true' allows overwriting
 
     let subprocess;
     try {
@@ -211,4 +255,41 @@ function _readOutput(stdout, stdin, outCallback, inCallback) {
             }
         }
     );
+}
+
+/**
+ * Detects if PipeWire or PulseAudio is installed and returns which one.
+ * @private
+ * @throws {Error} Throws an error if the underlying `pactl info` command fails.
+ * @returns {Promise<string|null>} A promise that resolves to "pipewire", "pulseaudio", or null if neither is found.
+ */
+export async function detectAudioServer() {
+    try {
+        const commandArray = [
+            "pactl", 
+            "info"
+        ];
+        const output = await asyncExecCommandAndReadOutput(
+            commandArray,
+            null,
+            null
+        );
+
+        if (output && output.length > 0) {
+            const filtered = output.filter((line) => {
+                return line.toLowerCase().includes("pipewire") || 
+                        line.toLowerCase().includes("pulseaudio");
+            });
+            
+            if (filtered.length > 0) {
+                return filtered[0].toLowerCase().includes("pipewire") 
+                    ? "pipewire" 
+                    : "pulseaudio";
+            }
+        }
+
+        return null;
+    } catch (err) {
+        throw new Error(err);
+    }
 }

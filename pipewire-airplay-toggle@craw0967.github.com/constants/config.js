@@ -110,6 +110,7 @@ export const INDICATOR_ICON_MAP = INDICATOR_ICON_MODEL.reduce((acc, current) => 
 }, {});
 
 export const INDICATOR_TEXT = _("AirPlay Speakers");
+export const COMBINED_SINK_NAME = "AirPlay-Enabled Speakers";
 
 export const PW_MISSING_TITLE = _("Supported Audio Server and/or Modules Not Found");
 export const PW_MISSING_BODY =  _("Please review and install the required dependencies outlined in the 'pipewire-airplay-toggle' extension's Installation Guide - " +

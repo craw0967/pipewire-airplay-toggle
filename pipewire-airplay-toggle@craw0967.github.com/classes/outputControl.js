@@ -1,0 +1,98 @@
+import GObject from "gi://GObject";
+import Clutter from "gi://Clutter";
+import St from "gi://St";
+
+import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
+
+import { AirPlayOutputSlider } from "./outputSlider.js";
+
+export const AirPlayOutputControl = GObject.registerClass(
+    class AirPlayOutputControl extends PopupMenu.PopupSubMenuMenuItem {
+        _sinkEnabled;
+        _menuItem;
+        _slider;
+        _sink;
+        _icon;
+
+        constructor({ ...args }) {
+            const { state, sink, ...addArgs } = args;
+            super(sink.description, {
+                
+                ...addArgs,
+            });
+
+            this.state = state;
+            this._sink = sink;
+            this._sinkEnabled = this.state.getSettingsKey("get_string", "combined-sinks")?.split(",").includes(this._sink.name);
+
+            this._menuItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+            this._slider = new AirPlayOutputSlider({state: this.state, sink: this._sink, ...addArgs});
+
+            this._setupControl();
+        }
+
+        async _setupControl() {
+            // Wait for the components to get added and fully loaded/rendered
+            await this._setupControlComponents();
+            this._connectControlSignals();
+            
+            // Otherwise you will get errors and rendering issues when trying to set the initial open state
+            if(this._sinkEnabled) {
+                this._updateControlOpenState();
+            }
+        }
+
+        async _setupControlComponents() {
+            this._icon = new St.Icon({style_class: "popup-menu-icon", gicon: this.state.getStateKey("speakerDisabledGIcon")});
+            this.add_child(this._icon);
+            this._triangleBin.visible = false;
+
+            this._menuItem.add_child(this._slider);
+            this.menu.addMenuItem(this._menuItem);
+        }
+
+        _connectControlSignals() {
+            this.state.connectSignal(
+                this,
+                "button-press-event",
+                () => {
+                    this._sinkEnabled = !this._sinkEnabled; // Toggle your state
+
+                    this._updateControlOpenState();
+                    this.state.updateCombinedSinks(this._sink.id);
+
+                    // Stop the event here to prevent the default activate handler from running
+                    // This is much safer and less fragile then overriding PopupSubMenuMenuItem functions
+                    return Clutter.EVENT_STOP;
+                }
+            );
+        }
+
+        _updateControlOpenState() {
+            if (this._sinkEnabled) {
+                // Open the menu and set the isOpen state to false to prevent the menu from closing when other controls open
+                this._setOpenState(true);
+                this.menu.isOpen = false;
+                this._icon.gicon = this.state.getStateKey("speakerEnabledGIcon");
+            } else {
+                // To close, we need to reverse the isOpen hack before calling setOpenState
+                this.menu.isOpen = true;
+                this._setOpenState(false);
+                this._icon.gicon = this.state.getStateKey("speakerDisabledGIcon");
+            }
+        }
+
+        destroy() {
+            this._slider.destroy();
+            this._slider = null;
+
+            this._menuItem.destroy();
+            this._menuItem = null;
+
+            this._sink = null;
+            this._sinkEnabled = null;
+
+            super.destroy();
+        }
+    }
+);

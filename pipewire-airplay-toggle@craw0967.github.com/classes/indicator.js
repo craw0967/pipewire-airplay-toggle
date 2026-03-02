@@ -66,7 +66,7 @@ export const AirPlayIndicator = GObject.registerClass(
          */
         _addIndicatorIconToState() {
             const iconName = this.state.getSettingsKey("get_string", "indicator-icon")?.length > 0 ? INDICATOR_ICON_MAP[this.state.getSettingsKey("get_string", "indicator-icon")] : INDICATOR_ICON_MAP["option0"];
-            this.state.updateGIcon('indicatorGIcon', iconName);
+            this.state.updateGIcon("indicatorGIcon", iconName);
         };
 
         /**
@@ -74,14 +74,9 @@ export const AirPlayIndicator = GObject.registerClass(
          * @private
          */
         _connectSettings() {
-
-            //TODO - In the original multi_speaker build I connected the changing of the logging enabled setting to a state variable. This seems unnecessary, but adding a note in case I want to double check that pattern.
-            // If we update the state variable, it will trigger an event and we can run logic based on that event, but we could just connect a function to the setting change or read the setting directly, which is what I'm doing in the most recent version
-
             this.state.connectSetting("indicator-icon", () => {
                     this._addIndicatorIconToState();
                     this._indicator.gicon = this.state.getStateKey("indicatorGIcon");
-                    this._toggle._setIndicatorIcon();
                 }
             );
             

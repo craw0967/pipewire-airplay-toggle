@@ -1,3 +1,5 @@
+import { logErr } from "../functions/logs.js";
+
 /**
  * A mixin for managing signals.
  * @mixin
@@ -33,6 +35,20 @@ export const SignalHandlerMixin = (Base) => class extends Base {
             return id;
         } catch (err) {
             throw new Error(err);
+        }
+    }
+
+    disconnectSignal(obj, id) {
+        try {
+            const index = this.#signalHandlers.findIndex((signal) => {
+                return signal[1].toString() === id.toString();
+            });
+            if (index > -1) {
+                obj.disconnect(id);
+                this.#signalHandlers.splice(index, 1);
+            }
+        } catch (err) {
+            logErr(this, err);
         }
     }
 

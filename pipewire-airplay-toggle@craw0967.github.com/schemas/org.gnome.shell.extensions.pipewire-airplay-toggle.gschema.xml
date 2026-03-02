@@ -32,5 +32,8 @@
     <key name="show-debug" type="b">
       <default>false</default>
     </key>
+    <key name="combined-sinks" type="s">
+      <default>''</default>
+    </key>
   </schema>
 </schemalist>
