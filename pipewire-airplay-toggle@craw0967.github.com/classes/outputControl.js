@@ -23,6 +23,8 @@ export const AirPlayOutputControl = GObject.registerClass(
 
             this.state = state;
             this._sink = sink;
+
+            // Set initial "enabled" status based on persistent data from gsettings
             this._sinkEnabled = this.state.getSettingsKey("get_string", "combined-sinks")?.split(",").includes(this._sink.name);
 
             this._menuItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
@@ -32,11 +34,11 @@ export const AirPlayOutputControl = GObject.registerClass(
         }
 
         async _setupControl() {
-            // Wait for the components to get added and fully loaded/rendered
+            // Make this method async and use a promise to allow the components to get added and fully loaded/rendered
             await this._setupControlComponents();
             this._connectControlSignals();
             
-            // Otherwise you will get errors and rendering issues when trying to set the initial open state
+            // Otherwise you will get errors and rendering issues when trying to set the initial open/enabled state
             if(this._sinkEnabled) {
                 this._updateControlOpenState();
             }

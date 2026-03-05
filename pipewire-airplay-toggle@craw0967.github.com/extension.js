@@ -18,6 +18,8 @@
 
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
+import * as Main from "resource:///org/gnome/shell/ui/main.js";
+
 import { AirPlayIndicator } from "./classes/indicator.js";
 import { AirPlayToggleExtensionState } from "./state/state.js";
 import { AirPlayMultiSpeakerMenu } from "./classes/multiSpeakerMenu.js";
@@ -36,7 +38,28 @@ export default class PipeWireAirPlayToggleExtension extends Extension {
         this.state.setExtensionObject(this);
         
         this._indicator = new AirPlayIndicator({ state: this.state });
-        this._multiSpeakerMenu = new AirPlayMultiSpeakerMenu({ state: this.state });
+        
+        this._multiSpeakerMenu = null;
+        const quickSettings = Main.panel.statusArea.quickSettings;
+
+        // Connect to the quick setting menu's open-state-changed signal.
+        // This is a clean, event-driven way to initialize the multi speaker menu UI,
+        // ensuring the dependencies from GNOME Shell are loaded before we load the AirPlayMultiSpeakerMenu class
+        const openStateSignalId = this.state.connectSignal(quickSettings.menu, 'open-state-changed', (menu, isOpen) => {
+            if (isOpen && !this._multiSpeakerMenu) {
+                // Once the menu is open, the volume slider should exist.
+                // We do a one-time check and create our menu if needed.
+                if (quickSettings._volumeOutput) {
+                    this._multiSpeakerMenu = new AirPlayMultiSpeakerMenu({ state: this.state });
+
+                    // The menu is created, so we can disconnect this signal handler
+                    // to prevent it from running again.
+                    // If the user never opens the quick setting menu, 
+                    // this.state.destroy() will handle signal cleanup
+                    this.state.disconnectSignal(menu, openStateSignalId);
+                }
+            }
+        });
     }
 
     /**
@@ -44,14 +67,13 @@ export default class PipeWireAirPlayToggleExtension extends Extension {
      * This is called when the extension is disabled or uninstalled.
      */
     disable() {
-        // https://gjs.guide/extensions/review-guidelines/review-guidelines.html#destroy-all-objects
+        this.state?.destroy();
+        this.state = null;
+        
         this._multiSpeakerMenu?.destroy();
         this._multiSpeakerMenu = null;
         
         this._indicator?.destroy();
         this._indicator = null;
-
-        this.state.destroy();
-        this.state = null;
     }
 }

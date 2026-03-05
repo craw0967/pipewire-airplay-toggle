@@ -43,7 +43,7 @@ export const AirPlayToggleBase = GObject.registerClass(
 
         _setIndicatorIcon() {
             this.gicon = this.state.getStateKey("indicatorGIcon");
-            this._setMenuHeader(this.gicon);
+            this._setMenuHeader(this.gicon); // The _setMenuHeader() function is in toggleMenu.js
         }
 
         /**
@@ -51,19 +51,18 @@ export const AirPlayToggleBase = GObject.registerClass(
          * @private
          */
         _connectToggleSignals() {
-            // The signals connected by this.state.connectSignal() are cleaned up via the this.state.destroy() method that gets called in extension.js
             this.state.connectSignal(this, "clicked", () => {
                 if (this.state.getStateKey("audioServerInstalled")) {
                     this._toggleAirPlay();
-                    this.checked = !this.checked;
                 } else {
                     this._notifyMissingDependencies();
                 }
             });
 
-            this.state.connectSignal(this.state, "pipewire-airplay-toggle-state-changed", (obj, key) => {
+            this.state.connectSignal(this.state, "pipewire-airplay-toggle-state-changed", async (obj, key) => {
                 if (key === "modulesList") {
                     // If the checked state of the toggle gets out of sync, resync it
+                    // This is primarily for if the user manually enables/disables module-raop-discover
                     if(this.checked !== this.state.getStateKey("modulesList").includes("module-raop-discover")) {
                         this.checked = this.state.getStateKey("modulesList").includes("module-raop-discover");
                     }
@@ -87,8 +86,12 @@ export const AirPlayToggleBase = GObject.registerClass(
          */
         async _toggleAirPlay() {
             try {
-                this.state.toggleAirPlay();
-
+                await this.state.toggleAirPlay();
+                // Update "checked" after we toggle the RAOP module
+                // This ensures the state is updated before we trigger the "notify::checked" signal handler
+                // Update here instead of waiting on the emission from this.state 
+                // so the user doesn't notice the latency in the UI
+                this.checked = !this.checked;
             } catch (err) {
                 logErr(this.state, err);
             }

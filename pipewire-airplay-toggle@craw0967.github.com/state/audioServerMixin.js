@@ -116,7 +116,7 @@ export const AudioServerMixin = (Base) => class extends Base {
             this._moduleMonitorTimeout =  setTimeout(() => {
                 this._updateModulesList();
                 this._moduleMonitorTimeout = null;
-            }, 5); // Is 20 ms too short of a time?  Works great on my computer, but maybe not on lower performance machines?
+            }, 100); // Is 20 ms too short of a time?  Works great on my computer, but maybe not on lower performance machines?
         }
 
         if (line.includes("sink")) {
@@ -128,40 +128,7 @@ export const AudioServerMixin = (Base) => class extends Base {
             this._sinkMonitorTimeout =  setTimeout(() => {
                 this._updateSinksList();
                 this._sinkMonitorTimeout = null;
-            }, 5); // Is 20 ms too short of a time?  Works great on my computer, but maybe not on lower performance machines?
-        }
-    }
-
-    /**
-     * Toggles the state of the RAOP (AirPlay) module by loading or unloading it.
-     */
-    async toggleAirPlay() {
-        if(!this.getStateKey("audioServerInstalled")) {
-            this._notifyMissingDependencies();
-            return;
-        }
-
-        try {
-            const commandArray = [
-                "pactl",
-                this.getStateKey("modulesList").includes("module-raop-discover") ? "unload-module" : "load-module",
-                "module-raop-discover",
-            ];
-            
-            await asyncExecCommandAndReadOutput(
-                commandArray,
-                null,
-                null
-            );
-
-        } catch (err) {
-            logErr(this, err);
-
-            const errMessage = err?.message ? err.message : err;
-            // TODO - this needs testing with Pulse and Pipewire
-            if (errMessage?.includes("Module initialization failed") || (errMessage?.includes("Failed to open module") && errMessage?.includes("module-raop-discover"))) {
-                this._notifyMissingDependencies();
-            }
+            }, 100); // Is 20 ms too short of a time?  Works great on my computer, but maybe not on lower performance machines?
         }
     }
 
@@ -217,18 +184,46 @@ export const AudioServerMixin = (Base) => class extends Base {
                 this.updateStateKey("currentCombineModuleId", null);
             }
 
-            /* const parsedOutput = output?.length > 0 ? JSON.parse(output) : null;
-
-            if (parsedOutput?.length > 0) {
-                this.updateStateKey("modulesList", parsedOutput.map((module) => {return module.name}));
-                
-            } else {
-                this.updateStateKey("modulesList", []);
-            } */
-
         } catch (err) {
             logErr(this, err);
         }
+    }
+
+    /**
+     * Toggles the state of the RAOP (AirPlay) module by loading or unloading it.
+     */
+    async toggleAirPlay() {
+        if(!this.getStateKey("audioServerInstalled")) {
+            this._notifyMissingDependencies();
+            return false;
+        }
+
+        try {
+            const commandArray = [
+                "pactl",
+                this.getStateKey("modulesList").includes("module-raop-discover") ? "unload-module" : "load-module",
+                "module-raop-discover",
+            ];
+            
+            await asyncExecCommandAndReadOutput(
+                commandArray,
+                null,
+                null
+            );
+
+            return this.getStateKey("modulesList").includes("module-raop-discover");
+
+        } catch (err) {
+            logErr(this, err);
+
+            const errMessage = err?.message ? err.message : err;
+            // TODO - this needs testing with Pulse and Pipewire - this works with pulse, but the button still shows checked.  Need to prevent it from checking (might be fixed)
+            if (errMessage?.includes("Module initialization failed") || (errMessage?.includes("Failed to open module") && errMessage?.includes("module-raop-discover"))) {
+                this._notifyMissingDependencies();
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -241,9 +236,9 @@ export const AudioServerMixin = (Base) => class extends Base {
             const command = [
                 "pactl",
                 "unload-module",
-                moduleId
+                moduleId.toString()
             ];
-            asyncExecCommandAndReadOutput(
+            await asyncExecCommandAndReadOutput(
                 command,
                 null,
                 null
@@ -254,6 +249,13 @@ export const AudioServerMixin = (Base) => class extends Base {
     }        
 
     async _createCombinedSinkModule(setAsDefaultSink = false) {
+        // The combined sink is not getting created after the raop module is toggled even when the combined-speakers setting is enabled.
+        // The issue is that the notify::checked event handler in toggleMenu.js is firing and completing before the "clicked" event handler 
+        // In toggle.js. There is latency between the time the module is toggled by the "clicked" event handler and the time
+        // the subsequent pactl subscribe event handler updates the "modulesList". To work aroudn this, just force an update here before proceeding
+        // All attempts to block the click handler have not worked 100%. This resolves the issue in the easiest manner.
+        await this._updateModulesList();
+
         if(!this.getSettingsKey("get_boolean", "combined-speakers") || !this.getStateKey("modulesList").includes("module-raop-discover")) {
             return;
         }
@@ -264,17 +266,34 @@ export const AudioServerMixin = (Base) => class extends Base {
         console.log('the combined sinks are: ' + combinedSinks);
 
         // We don't use --format=json here because the json doesn't include the module ID
-        const commandArray = [
+        let commandArray = [
             "pactl", 
             "load-module", 
             "module-combine-sink", 
-            `sink_name="${sinkName}"`,
+            `sink_name="airplay.enabled.speakers"`,
             "rate=44100", 
             "channels=2", 
-            "channel_map=stereo", 
-            "latency_compensate=true", 
-            `sinks="${combinedSinks}"`
+            "channel_map=stereo",
+            `sink_properties="device.description='${sinkName}'"`
         ];
+
+        if (this.getSettingsKey("get_string", "audio-server") === "pipewire") {
+            commandArray.push(
+                "latency_compensate=true", // This only works for PipeWire. Pulseaudio fails to load the module if it's used. Pulseaudio has 'adjust_time' which is different
+                `sinks="${combinedSinks}"`
+            )
+        } else {
+            commandArray.push(
+                `slaves="${combinedSinks}"` // Pulseaudio still requires to use of the property 'slaves=' instead of 'sinks='.  It won't load the module with 'sinks='
+            )
+        }
+
+        //For pulse audio, what about `pacmd update-sink-proplist Test combine.sinks="raop_output.Office-HomePod.local.2"` or `pacmd update-sink-proplist Test combine.slaves="raop_output.Office-HomePod.local.2"`
+        // Will that allow us to update the combined sinks without loading an entirely new combine sink module?  If so, we could use pw-cli for pipewire (pacmd not available on pw systems)
+        // I don't think so. I think it will just add metadata to the sink, but it's worth testing
+
+        //adjust_time = How often (in seconds) PulseAudio re-measures and re-synchronizes slave sinks (drift correction)
+        //latency_compensate = measures the latency of each slave sink and adds delay to faster sinks so all outputs are aligned. (latency alignment)
 
         try {
             let output = await asyncExecCommandAndReadOutput(
@@ -295,7 +314,7 @@ export const AudioServerMixin = (Base) => class extends Base {
                 }
             }
 
-            if(this.getStateKey("currentCombineModuleId") && setAsDefaultSink) {
+            if(this.getStateKey("currentCombineModuleId") && setAsDefaultSink) { //If there are no sinks selected, we should probably return the default sink back to the previous default sink
                 this._setDefaultSink(await this._getCombinedSinkId(this.getStateKey("currentCombineModuleId")));
             }
 
@@ -339,7 +358,7 @@ export const AudioServerMixin = (Base) => class extends Base {
 
             const parsedOutput = output?.length > 0 ? JSON.parse(output) : null;
             const filteredSinks = parsedOutput ? parsedOutput.filter((sink) => {
-                return sink?.properties?.["sess.media"]?.toString() === "raop"
+                return sink?.name?.includes("raop_output") || sink?.name?.includes("raop_sink")
             }) : null;
 
             if (filteredSinks?.length > 0) {
@@ -362,17 +381,20 @@ export const AudioServerMixin = (Base) => class extends Base {
 
     // Only use with pulseaudio. Pulse loads a module for each raop sink, while the owner module under pipewire is just the module-raop-discover
     _removeDuplicateRaopSinks(sinks) {
+        // TODO - this function removes duplicates even when the extension is "off" (not if the extension is disabled)
+        // This is due to the way it's always monitoring pactl subscribe and reacting to events.
         if(!this.getSettingsKey("get_boolean", "hide-duplicate-raop-sinks")) {
             this._parseRaopSinks(sinks);
+            return;
         }
 
         try {
-            const dupSinksOwnerModules = this._determineDuplicateSinks(sinks);
+            const dupSinkOwnerModules = this._determineDuplicateSinks(sinks);
                     
-            if(dupSinksOwnerModules?.length > 0) {
-                for(let moduleId of dupSinksOwnerModules) {
+            if(dupSinkOwnerModules?.length > 0) {
+                dupSinkOwnerModules.forEach((moduleId) => {
                     this._unloadModule(moduleId); // Unload the owner modules of the dup sinks. This will trigger new events in `pactl subscribe` and start this process over
-                }
+                });
             } else { // If there are no duplicates remaining, we can parse the sinks now
                 this._parseRaopSinks(sinks);
             }
@@ -389,7 +411,7 @@ export const AudioServerMixin = (Base) => class extends Base {
      * @returns {string[]} An array of duplicate RAOP sinks/outputs owner module IDs.
      */
     _determineDuplicateSinks(sinks) {
-        let duplicateModuleIds = [];
+        let dupSinkOwnerModules = [];
 
         if(sinks && sinks.length > 0) { 
             let sortedSinksArray = sinks.sort((a, b) => {
@@ -401,14 +423,14 @@ export const AudioServerMixin = (Base) => class extends Base {
                 let nextIndex = i + 1;
                 
                 if(sortedSinksArray[nextIndex] && sortedSinksArray[nextIndex].name.startsWith(name)) {
-                    duplicateModuleIds.push(sortedSinksArray[nextIndex].owner_module);
+                    dupSinkOwnerModules.push(sortedSinksArray[nextIndex].owner_module);
                     sortedSinksArray.splice(nextIndex, 1);
                     i--;
                 }
             }
         }
 
-        return duplicateModuleIds;
+        return dupSinkOwnerModules;
     }
 
     _parseRaopSinks(sinks) {
@@ -419,7 +441,7 @@ export const AudioServerMixin = (Base) => class extends Base {
             parsedSinks[sink.index.toString()] = {
                 "name": sink.name,
                 "id": sink.index.toString(),
-                "description": sink.description,
+                "description": sink.description, // Sometimes the description is (null). We should fall back to other properties when this happens //Note - obnoxiously this only happens in the JSON format
                 // The front-left and front-right channels will not vary for RAOP speakers in pulse, we should verify in pw
                 // The slider wants volume in decimal percents, like 0.5. it's easiest to work with this number in pactl via integer percents, like 50% (see man pactl), so let's use the volume_percent
                 "volume": sink.volume?.["front-left"]?.value_percent,
@@ -432,7 +454,7 @@ export const AudioServerMixin = (Base) => class extends Base {
                     "name": "",
                     "id": ""
                 },
-                combined: combinedSinks.includes(sink.name) ? true : false
+                "combined": combinedSinks.includes(sink.name) ? true : false
             }
         });
 
@@ -539,18 +561,8 @@ export const AudioServerMixin = (Base) => class extends Base {
     }
 
     async _destroyCombinedSpeakersSink(moduleId) {
-        const commandArray = [
-            "pactl", 
-            "unload-module", 
-            moduleId
-        ];
-
         try {
-            await asyncExecCommandAndReadOutput(
-                commandArray,
-                null,
-                null
-            );
+            await this._unloadModule(moduleId);
 
             if (this.getStateKey("currentCombineModuleId") === moduleId) {
                 this.updateStateKey("currentCombineModuleId", null);

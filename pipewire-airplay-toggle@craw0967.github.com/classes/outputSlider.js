@@ -122,9 +122,13 @@ export const AirPlayOutputSlider = GObject.registerClass(
             */
 
             this._sink = null;
+
+            // Because this slider may get destroyed during normal use of the extension
+            // We need to handle the signal cleanup here instead of relying on this.state.destroy()
             this.state.disconnectSignal(this.slider, this._volumeSignalId);
             this.state.disconnectSignal(this, this._muteSignalId);
             this.state.disconnectSignal(this.state, this._stateSignalId);
+            
             this._volumeSignalId = null;
             this._muteSignalId = null;
             this._stateSignalId = null;

@@ -22,6 +22,8 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
     }
 
     destroy() {
+        this._checkedSignalId = null;
+
         this._combinedSpeakersMenuItem?.disconnect();
         this._combinedSpeakersMenuItem?.destroy();
         this._combinedSpeakersMenuItem = null;
@@ -45,6 +47,10 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
     }
 
+    _setMenuItemOrnament(menuItem, enabled) {
+        menuItem.setOrnament(enabled ? PopupMenu.Ornament.CHECK : PopupMenu.Ornament.NONE);
+    }
+
     _createSettingsItems() {
         const settingsItem = this.menu.addAction("Extension Settings", // TODO - Add text to constants and prep for translation
             () => this._extensionObject.openPreferences());
@@ -55,32 +61,29 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
     }
 
     _connectToggleMenuSignals() {
+        // Toggle the combined sink module, if enabled
         this.state.connectSignal(this, "notify::checked", () => {
             this._toggleCombinedSpeakers();
         });
 
         this.state.connectSignal(this._combinedSpeakersMenuItem, "activate", () => {
-            // Update the setting to trigger the setting change event. Setting change event is connected in this._connectSettings()
+            // Update the "combined-speakers" gsetting. Resulting setting change event is connected in this._connectToggleMenuSettings()
             this.state.updateSettingsKey("set_boolean", "combined-speakers", !this.state.getSettingsKey("get_boolean", "combined-speakers"));
         });
     }
 
     _connectToggleMenuSettings() {
+        // Toggle the combined sink module, if enabled
         this.state.connectSetting("combined-speakers", () => {
             this._toggleCombinedSpeakers();
         });
     }
 
-    async _toggleCombinedSpeakers() {
+    _toggleCombinedSpeakers() {
         const combinedSpeakersEnabled = (this.state.getSettingsKey("get_boolean", "combined-speakers") && this.checked) ? true : false;
         
         this._setMenuItemOrnament(this._combinedSpeakersMenuItem, this.state.getSettingsKey("get_boolean", "combined-speakers"));
         
-        await this.state.toggleCombinedSinkModule(combinedSpeakersEnabled);
+        this.state.toggleCombinedSinkModule(combinedSpeakersEnabled);
     }
-
-    _setMenuItemOrnament(menuItem, enabled) {
-        menuItem.setOrnament(enabled ? PopupMenu.Ornament.CHECK : PopupMenu.Ornament.NONE);
-    }
-
 }

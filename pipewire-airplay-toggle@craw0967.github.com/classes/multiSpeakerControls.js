@@ -13,6 +13,9 @@ export const AirPlayMultiSpeakerControls = class AirPlayMultiSpeakerControl exte
 
         this.state = state;
         
+        // TODO - determine a preferred location for loading icons into the state object
+        // They occasionally need to be dynamic, but I like the idea of loading the defaults all in one method
+        // Maybe in the state class itself?
         this.state.updateGIcon("speakerEnabledGIcon", "selection-mode-symbolic.svg");
         this.state.updateGIcon("speakerDisabledGIcon", "radio-symbolic.svg");
         this.state.updateGIcon("volume0GIcon", "volume-0-symbolic.svg");
@@ -24,12 +27,12 @@ export const AirPlayMultiSpeakerControls = class AirPlayMultiSpeakerControl exte
         this._controls = {};
 
         this._setupControls();
-        this._connectSignals();
+        this._connectControlsSignals();
 
         this.actor.hide();
     }
 
-    _connectSignals() {
+    _connectControlsSignals() {
         //Update button visibility if the toggle button is checked
         this.state.connectSignal(this.state, "pipewire-airplay-toggle-state-changed", (obj, key) => {
             if (key === "raopSinksMap") {
