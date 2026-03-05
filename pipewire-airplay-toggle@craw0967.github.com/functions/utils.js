@@ -14,58 +14,38 @@ Gio._promisify(
 /**
  * Applies a series of mixins to a base class.
  *
- * @param {Function} base - The base class to which mixins will be applied.
- * @param {...Function} mixins - The mixin functions to apply.
- * @returns {Function} A new class with all mixins applied.
+ * @param {Class} base - The base class to which mixins will be applied.
+ * @param {...Class} mixins - The mixin functions to apply.
+ * @returns {Class} A new class with all mixins applied.
  */
 export function composeMixins(base, ...mixins) {
     return mixins.reduce((cls, mixin) => mixin(cls), base);
 }
 
+/**
+ * Creates a Gio.FileIcon from an icon file name.
+ *
+ * @param {object} state - The extension state object.
+ * @param {string} iconFileName - The name of the icon file in the 'icons' directory.
+ * @returns {Gio.FileIcon} A new file icon.
+ */
 export function getGIcon(state, iconFileName) {
     const iconFile = Gio.File.new_for_path(state.getExtensionObject().dir.get_child("icons").get_path() + "/" + iconFileName);
     return Gio.FileIcon.new(iconFile);
 }
 
-
-/* export function deepMerge(target, concatArrays = false, ...sources) {
-    // If no sources left to merge, return the target
-    if (!sources.length) return target;
-
-    const cache = new WeakMap(); // Track merged objects to avoid circular references
-    
-    // Take the first source to merge into the target
-    const source = sources.shift();
-
-    if (cache.has(source)) return cache.get(source);
-    
-    // Only merge if both target and source are objects
-    if (isObject(target) && isObject(source)) {
-        // Iterate over each key in the source
-        for (const key in source) {
-            // Skip inherited properties (avoid prototype pollution)
-            if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
-        
-            // If the source value is an object, recursively merge
-            if (isObject(source[key])) {
-                // If target doesn't have the key, initialize it as an empty object
-                if (!target[key]) Object.assign(target, { [key]: {} });
-                // Recursively merge the nested objects
-                deepMerge(target[key], source[key]);
-            } else if (Array.isArray(target) && Array.isArray(source) && concatArrays) {
-                // Merge arrays by concatenation (or replace with source)
-                target = [...target, ...source] 
-            } else {
-                // Otherwise, overwrite the target value with the source value
-                Object.assign(target, { [key]: source[key] });
-            }
-        }
-    }
- 
-    // Merge the remaining sources
-    return deepMerge(target, ...sources);
-} */
-
+/**
+ * Recursively merges properties of one or more source objects into a target object.
+ * If a key exists in both objects and the values are objects, it will recursively merge them.
+ * Otherwise, the value from the source object will overwrite the value in the target object.
+ * Arrays are treated as values, meaning a source array will completely overwrite a target array, not merge with it.
+ *
+ * Note: This function mutates the target object.
+ *
+ * @param {object} target - The object to merge properties into.
+ * @param {...object} sources - The source objects to merge properties from.
+ * @returns {object} The modified target object.
+ */
 export function deepMerge(target, ...sources) {
   // If no sources left to merge, return the target
   if (!sources.length) return target;
@@ -97,7 +77,13 @@ export function deepMerge(target, ...sources) {
   return deepMerge(target, ...sources);
 }
 
-// Helper: Check if a value is a plain object (not null/array/other types)
+/**
+ * Checks if a value is a plain object (and not an array or null).
+ *
+ * @private
+ * @param {*} value - The value to check.
+ * @returns {boolean} True if the value is a plain object, false otherwise.
+ */
 function isObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -171,6 +157,7 @@ export async function asyncExecCommandAndReadOutput(argv, input = null, cancella
  * This is intended for long-running processes.
  * See: https://gjs.guide/guides/gio/subprocesses.html#communicating-with-processes
  *
+ * @param {object} state - The extension state object, used to track the process.
  * @param {Gio.Subprocess|null} subproc - An existing subprocess to use, or null to spawn a new one.
  * @param {string[]} argv - The command and arguments to execute.
  * @param {function(string): void} outCallback - Callback invoked for each line of output from stdout.
@@ -258,8 +245,8 @@ function _readOutput(stdout, stdin, outCallback, inCallback) {
 }
 
 /**
- * Detects if PipeWire or PulseAudio is installed and returns which one.
- * @private
+ * Detects if PipeWire or PulseAudio is the active sound server.
+ *
  * @throws {Error} Throws an error if the underlying `pactl info` command fails.
  * @returns {Promise<string|null>} A promise that resolves to "pipewire", "pulseaudio", or null if neither is found.
  */

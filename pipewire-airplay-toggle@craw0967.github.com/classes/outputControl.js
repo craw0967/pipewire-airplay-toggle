@@ -6,6 +6,14 @@ import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 
 import { AirPlayOutputSlider } from "./outputSlider.js";
 
+/**
+ * Represents a single AirPlay speaker control within the multi-speaker menu.
+ * It acts as a submenu item that contains a volume slider for an individual sink.
+ * Clicking the item toggles the speaker's inclusion in the combined sink.
+ *
+ * @class AirPlayOutputControl
+ * @extends PopupMenu.PopupSubMenuMenuItem
+ */
 export const AirPlayOutputControl = GObject.registerClass(
     class AirPlayOutputControl extends PopupMenu.PopupSubMenuMenuItem {
         _sinkEnabled;
@@ -14,6 +22,12 @@ export const AirPlayOutputControl = GObject.registerClass(
         _sink;
         _icon;
 
+        /**
+         * @constructor
+         * @param {object} args - The constructor arguments.
+         * @param {AirPlayToggleExtensionState} args.state - The extension state object.
+         * @param {object} args.sink - The sink object this control represents.
+         */
         constructor({ ...args }) {
             const { state, sink, ...addArgs } = args;
             super(sink.description, {
@@ -33,6 +47,13 @@ export const AirPlayOutputControl = GObject.registerClass(
             this._setupControl();
         }
 
+        /**
+         * Asynchronously sets up the control's components and signals.
+         * This ensures components are rendered before their state is manipulated.
+         *
+         * @private
+         * @async
+         */
         async _setupControl() {
             // Make this method async and use a promise to allow the components to get added and fully loaded/rendered
             await this._setupControlComponents();
@@ -44,6 +65,13 @@ export const AirPlayOutputControl = GObject.registerClass(
             }
         }
 
+        /**
+         * Creates and arranges the UI components for the control.
+         * This includes the icon and the volume slider within the submenu.
+         *
+         * @private
+         * @async
+         */
         async _setupControlComponents() {
             this._icon = new St.Icon({style_class: "popup-menu-icon", gicon: this.state.getStateKey("speakerDisabledGIcon")});
             this.add_child(this._icon);
@@ -53,6 +81,13 @@ export const AirPlayOutputControl = GObject.registerClass(
             this.menu.addMenuItem(this._menuItem);
         }
 
+        /**
+         * Connects the necessary signals for the control.
+         * It handles the button press to toggle the sink's enabled state
+         * and stops the event to prevent default submenu activation.
+         *
+         * @private
+         */
         _connectControlSignals() {
             this.state.connectSignal(
                 this,
@@ -70,6 +105,15 @@ export const AirPlayOutputControl = GObject.registerClass(
             );
         }
 
+        /**
+         * Updates the visual state of the control based on whether the sink is enabled.
+         * When enabled, it opens the submenu to show the slider and changes the icon.
+         * It uses a workaround (`this.menu.isOpen = false`) to prevent the menu from
+         * closing automatically when another control is clicked, allowing multiple
+         * sliders to be visible at once.
+         *
+         * @private
+         */
         _updateControlOpenState() {
             if (this._sinkEnabled) {
                 // Open the menu and set the isOpen state to false to prevent the menu from closing when other controls open
@@ -84,6 +128,9 @@ export const AirPlayOutputControl = GObject.registerClass(
             }
         }
 
+        /**
+         * Cleans up all resources used by this control, including child widgets.
+         */
         destroy() {
             this._slider.destroy();
             this._slider = null;

@@ -11,12 +11,18 @@ import { AirPlayToggle } from "./toggle.js";
 
 /**
  * Class representing the AirPlay QuickSettings System Indicator.
+ * This indicator adds a toggle to the Quick Settings menu and an optional
+ * status icon to the top panel.
+ *
+ * @class AirPlayIndicator
  * @extends QuickSettings.SystemIndicator
  */
 export const AirPlayIndicator = GObject.registerClass(
     class AirPlayIndicator extends QuickSettings.SystemIndicator {
         /**
          * @constructor
+         * @param {object} args - The constructor arguments.
+         * @param {AirPlayToggleExtensionState} args.state - The extension state object.
          */
         constructor({ ...args }) {
             const { state, ...addArgs } = args;
@@ -87,7 +93,8 @@ export const AirPlayIndicator = GObject.registerClass(
         }
 
         /**
-         * Sets the visibility of the indicator icon based on extension settings.
+         * Sets the visibility of the panel indicator icon based on extension settings.
+         * When enabled, the icon's visibility is bound to the toggle's checked state.
          * @private
          */
         _setIndicatorIconVisibility() {

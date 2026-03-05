@@ -3,6 +3,13 @@ import GObject from "gi://GObject";
 
 import * as QuickSettings from "resource:///org/gnome/shell/ui/quickSettings.js";
 
+/**
+ * A volume slider control for an individual AirPlay sink.
+ * It includes a mute/unmute button and updates its state based on the sink's properties.
+ *
+ * @class AirPlayOutputSlider
+ * @extends QuickSettings.QuickSlider
+ */
 export const AirPlayOutputSlider = GObject.registerClass(
     class AirPlayOutputSlider extends QuickSettings.QuickSlider {
         _sink;
@@ -10,6 +17,12 @@ export const AirPlayOutputSlider = GObject.registerClass(
         _muteSignalId;
         _stateSignalId;
 
+        /**
+         * @constructor
+         * @param {object} args - The constructor arguments.
+         * @param {AirPlayToggleExtensionState} args.state - The extension state object.
+         * @param {object} args.sink - The sink object this slider controls.
+         */
         constructor({ ...args }) {
             const { state, sink, ...addArgs } = args;
             super({
@@ -60,6 +73,12 @@ export const AirPlayOutputSlider = GObject.registerClass(
             */
         }
 
+        /**
+         * Connects signals for the slider's value changes, the mute icon click,
+         * and global state changes that affect the sink.
+         *
+         * @private
+         */
         _connectSliderSignals() {
             this._volumeSignalId = this.state.connectSignal(
                 this.slider, 
@@ -88,6 +107,13 @@ export const AirPlayOutputSlider = GObject.registerClass(
             );
         }
 
+        /**
+         * Updates the slider's value and icon based on the current state of the
+         * associated sink (volume and mute status). It blocks the 'notify::value'
+         * signal during the update to prevent feedback loops.
+         *
+         * @private
+         */
         _updateSliderState() {
             this.slider.block_signal_handler(this._volumeSignalId);
             this.slider.value = this._sink.muted === 1 ? 0 : parseFloat(this._sink.volume || 0) / 100.0;
@@ -95,6 +121,13 @@ export const AirPlayOutputSlider = GObject.registerClass(
             this.slider.unblock_signal_handler(this._volumeSignalId);
         }
 
+        /**
+         * Determines the appropriate volume icon based on the volume level.
+         *
+         * @private
+         * @param {number} volume - The current volume level (0-100+).
+         * @returns {Gio.Icon} The GIcon corresponding to the volume level.
+         */
         _getVolumeIcon(volume) {
             let iconKey = "";
 
@@ -113,6 +146,10 @@ export const AirPlayOutputSlider = GObject.registerClass(
             return this.state.getStateKey(iconKey);
         }
 
+        /**
+         * Cleans up all resources used by this slider, including disconnecting
+         * all signal handlers to prevent memory leaks.
+         */
         destroy() {
             /* Keeping for LR channel support in future versions
             this._leftChannelButton?.destroy();

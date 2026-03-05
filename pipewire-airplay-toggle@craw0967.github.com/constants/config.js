@@ -1,4 +1,4 @@
-/***
+/**
  * A function used to identify strings for automated localization tools like `xgettext`.
  * This function takes an input string and returns it without modification.
  * It is intended to be used to mark strings for inclusion in a `.pot` file for translation.
@@ -10,6 +10,12 @@ const _ = function gettext(input) {
     return input;
 }
 
+/**
+ * Defines the available icon options for the indicator.
+ * Each option includes a label, icon name, and a value.
+ *
+ * @type {Array<{label: string, icon: string, value: string}>}
+ */
 const INDICATOR_ICON_MODEL = [
     {
         label: _("Music Note - Outline"), 
@@ -38,6 +44,12 @@ const INDICATOR_ICON_MODEL = [
     }
 ]
 
+/**
+ * Configuration for the extension's preferences page.
+ * Defines the structure of pages, groups, and rows for the settings window.
+ *
+ * @type {Array<object>}
+ */
 export const PREFS_PAGES = [
     {
         title: _("Preferences"),
@@ -104,14 +116,42 @@ export const PREFS_PAGES = [
     }
 ]
 
+/**
+ * Maps icon values to their corresponding icon filenames.
+ * Generated from INDICATOR_ICON_MODEL.
+ *
+ * @type {Object.<string, string>}
+ */
 export const INDICATOR_ICON_MAP = INDICATOR_ICON_MODEL.reduce((acc, current) => {
     acc[current.value] = current.icon;
     return acc;
 }, {});
 
+/**
+ * The text label displayed for the indicator.
+ *
+ * @type {string}
+ */
 export const INDICATOR_TEXT = _("AirPlay Speakers");
+
+/**
+ * The name used for the combined sink when creating a virtual sink.
+ *
+ * @type {string}
+ */
 export const COMBINED_SINK_NAME = "AirPlay-Enabled Speakers";
 
+/**
+ * Title text for the notification shown when dependencies are missing.
+ *
+ * @type {string}
+ */
 export const PW_MISSING_TITLE = _("Supported Audio Server and/or Modules Not Found");
+
+/**
+ * Body text for the notification shown when dependencies are missing.
+ *
+ * @type {string}
+ */
 export const PW_MISSING_BODY =  _("Please review and install the required dependencies outlined in the 'pipewire-airplay-toggle' extension's Installation Guide - " +
                                   "https://github.com/craw0967/pipewire-airplay-toggle/wiki/Installation-Guide");

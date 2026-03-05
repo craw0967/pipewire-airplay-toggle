@@ -11,12 +11,16 @@ import { AirPlayToggleMenu } from "./toggleMenu.js";
 
 /**
  * Class representing a QuickSettings Quick Toggle for AirPlay.
+ * 
+ * @class AirPlayToggleBase
  * @extends QuickSettings.QuickMenuToggle
  */
 export const AirPlayToggleBase = GObject.registerClass(
     class AirPlayToggleBase extends QuickSettings.QuickMenuToggle {
         /**
          * @constructor
+         * @param {object} args - The constructor arguments.
+         * @param {AirPlayToggleExtensionState} args.state - The extension state object.
          */
         constructor({ ...args } = {}) {
             const { state, ...addArgs } = args;
@@ -41,6 +45,10 @@ export const AirPlayToggleBase = GObject.registerClass(
             super.destroy();
         }
 
+        /**
+         * Sets the icon for the toggle button and its menu header.
+         * @private
+         */
         _setIndicatorIcon() {
             this.gicon = this.state.getStateKey("indicatorGIcon");
             this._setMenuHeader(this.gicon); // The _setMenuHeader() function is in toggleMenu.js
@@ -54,8 +62,6 @@ export const AirPlayToggleBase = GObject.registerClass(
             this.state.connectSignal(this, "clicked", () => {
                 if (this.state.getStateKey("audioServerInstalled")) {
                     this._toggleAirPlay();
-                } else {
-                    this._notifyMissingDependencies();
                 }
             });
 
@@ -99,10 +105,21 @@ export const AirPlayToggleBase = GObject.registerClass(
     }
 );
 
+/**
+ * The final AirPlayToggle class, composed of AirPlayToggleBase and the AirPlayToggleMenu mixin.
+ * This class represents the complete Quick Settings toggle with its associated menu.
+ *
+ * @extends AirPlayToggleBase
+ */
 export const AirPlayToggle = GObject.registerClass(class AirPlayToggle extends composeMixins(
     AirPlayToggleBase,
     AirPlayToggleMenu
 ) {
+    /**
+     * @constructor
+     * @param {object} args - The constructor arguments, passed to the parent classes.
+     * @param {AirPlayToggleExtensionState} args.state - The extension state object.
+     */
     constructor({ ...args } = {}) {
         super({ ...args });
     }
