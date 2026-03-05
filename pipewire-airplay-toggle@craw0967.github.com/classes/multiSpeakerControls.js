@@ -27,29 +27,10 @@ export const AirPlayMultiSpeakerControls = class AirPlayMultiSpeakerControl exte
 
         this._controls = {};
 
-        this._loadIcons();
         this._setupControls();
         this._connectControlsSignals();
 
         this.actor.hide();
-    }
-
-    /**
-     * Loads the necessary icons into the extension state.
-     *
-     * @private
-     */
-    _loadIcons() {
-        // TODO - determine a preferred location for loading icons into the state object
-        // They occasionally need to be dynamic, but I like the idea of loading the defaults all in one method
-        // Maybe in the state class itself?
-        this.state.updateGIcon("speakerEnabledGIcon", "selection-mode-symbolic.svg");
-        this.state.updateGIcon("speakerDisabledGIcon", "radio-symbolic.svg");
-        this.state.updateGIcon("volume0GIcon", "volume-0-symbolic.svg");
-        this.state.updateGIcon("volume1GIcon", "volume-1-symbolic.svg");
-        this.state.updateGIcon("volume2GIcon", "volume-2-symbolic.svg");
-        this.state.updateGIcon("volume3GIcon", "volume-3-symbolic.svg");
-        this.state.updateGIcon("volume4GIcon", "volume-4-symbolic.svg");
     }
 
     /**

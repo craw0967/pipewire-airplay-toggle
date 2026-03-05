@@ -73,7 +73,7 @@ export const AirPlayOutputControl = GObject.registerClass(
          * @async
          */
         async _setupControlComponents() {
-            this._icon = new St.Icon({style_class: "popup-menu-icon", gicon: this.state.getStateKey("speakerDisabledGIcon")});
+            this._icon = new St.Icon({style_class: "popup-menu-icon", gicon: this.state.getGIconFile("speakerDisabledGIcon")});
             this.add_child(this._icon);
             this._triangleBin.visible = false;
 
@@ -119,12 +119,12 @@ export const AirPlayOutputControl = GObject.registerClass(
                 // Open the menu and set the isOpen state to false to prevent the menu from closing when other controls open
                 this._setOpenState(true);
                 this.menu.isOpen = false;
-                this._icon.gicon = this.state.getStateKey("speakerEnabledGIcon");
+                this._icon.gicon = this.state.getGIconFile("speakerEnabledGIcon");
             } else {
                 // To close, we need to reverse the isOpen hack before calling setOpenState
                 this.menu.isOpen = true;
                 this._setOpenState(false);
-                this._icon.gicon = this.state.getStateKey("speakerDisabledGIcon");
+                this._icon.gicon = this.state.getGIconFile("speakerDisabledGIcon");
             }
         }
 

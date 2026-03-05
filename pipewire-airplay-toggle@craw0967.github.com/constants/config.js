@@ -19,30 +19,52 @@ const _ = function gettext(input) {
 const INDICATOR_ICON_MODEL = [
     {
         label: _("Music Note - Outline"), 
-        icon: "music-note-outline-symbolic.svg", 
+        icon: "indicator0",
         value: "option0"
     },
     {
         label: _("Music Note - Solid"), 
-        icon: "music-note-symbolic.svg", 
+        icon: "indicator1",
         value: "option1"
     },
     {
         label: _("Waves & Screen"), 
-        icon: "waves-and-screen-symbolic.svg", 
+        icon: "indicator2",
         value: "option2"
     },
     {
         label: _("Wireless Speaker"), 
-        icon: "speaker-wireless-symbolic.svg", 
+        icon: "indicator3",
         value: "option3"
     },
     {
         label: _("Speaker"), 
-        icon: "speaker-symbolic.svg", 
+        icon: "indicator4",
         value: "option4"
     }
 ]
+
+/**
+ * A map of internal icon keys to their corresponding SVG filenames.
+ * These icons are used throughout the extension for various UI elements.
+ *
+ * @type {Object.<string, string>}
+ */
+export const G_ICON_MAP = {
+    "speakerEnabledGIcon": "selection-mode-symbolic.svg",
+    "speakerDisabledGIcon": "radio-symbolic.svg",
+    "volumeGIcon0": "volume-0-symbolic.svg",
+    "volumeGIcon1": "volume-1-symbolic.svg",
+    "volumeGIcon2": "volume-2-symbolic.svg",
+    "volumeGIcon3": "volume-3-symbolic.svg",
+    "volumeGIcon4": "volume-4-symbolic.svg",
+    "multiStreamGIcon": "media-podcast-symbolic.svg",
+    "indicator0": "music-note-outline-symbolic.svg",
+    "indicator1": "music-note-symbolic.svg",
+    "indicator2": "waves-and-screen-symbolic.svg",
+    "indicator3": "speaker-wireless-symbolic.svg",
+    "indicator4": "speaker-symbolic.svg"
+}
 
 /**
  * Configuration for the extension's preferences page.
@@ -139,7 +161,65 @@ export const INDICATOR_TEXT = _("AirPlay Speakers");
  *
  * @type {string}
  */
-export const COMBINED_SINK_NAME = "AirPlay-Enabled Speakers";
+export const COMBINED_SINK_NAME = _("AirPlay-Enabled Speakers");
+
+/**
+ * The label for the multi-speaker menu item.
+ *
+ * @type {string}
+ */
+export const MULTI_SPEAKER_LABEL = _("Enable Streaming to Multiple Speakers");
+
+/**
+ * The label for the settings menu item.
+ *
+ * @type {string}
+ */
+export const SETTINGS_LABEL = _("Extension Settings");
+
+/**
+ * The accessible name for the multi-speaker menu button.
+ *
+ * @type {string}
+ */
+export const MULTI_SPEAKER_MENU_ACCESSIBLE_NAME = _("Open AirPlay Multi-Speaker Menu");
+
+/**
+ * The default header text for the volume menu.
+ *
+ * @type {string}
+ */
+export const DEFAULT_VOLUME_MENU_HEADER = _("Sound Output");
+
+/**
+ * The label for the mute/unmute button on the output slider.
+ *
+ * @type {string}
+ */
+export const MUTE_UNMUTE_LABEL = _("Mute/Unmute");
+
+/**
+ * The default values for the extension state.
+ *
+ * @type {object}
+ */
+export const STATE_DEFAULTS = {
+    //Icons
+    indicatorGIcon: null,
+
+    //PipeWire/PulseAudio Variables
+    audioServerInstalled: false,
+    raopModuleInstalled: false,
+    raopModuleId: null,
+    modulesList: [],
+
+    //Sinks Variables
+    currentCombineModuleId: null,
+    newCombineModuleId: null,
+    combinedSinks: [],
+    raopSinksList: [],
+    raopSinksMap: {}
+};
 
 /**
  * Title text for the notification shown when dependencies are missing.

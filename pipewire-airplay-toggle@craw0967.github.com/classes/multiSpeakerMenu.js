@@ -8,6 +8,7 @@ import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 import { AirPlayMultiSpeakerControls } from "./multiSpeakerControls.js";
 
 import { logErr, logWarn } from "../functions/logs.js";
+import { COMBINED_SINK_NAME, MULTI_SPEAKER_MENU_ACCESSIBLE_NAME, DEFAULT_VOLUME_MENU_HEADER } from "../constants/config.js";
 
 /**
  * A button and menu system for controlling multiple AirPlay speakers.
@@ -33,12 +34,12 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
                 can_focus: true,
                 x_expand: false,
                 y_expand: true,
-                accessible_name: _("Open AirPlay Multi-Speaker Menu"),
+                accessible_name: _(MULTI_SPEAKER_MENU_ACCESSIBLE_NAME),
             });
 
             this.state = state;
 
-            this.child = new St.Icon({gicon: this.state.getStateKey("multiStreamGIcon")});
+            this.child = new St.Icon({gicon: this.state.getGIconFile("multiStreamGIcon")});
 
             this.QuickSettings = Main.panel.statusArea.quickSettings;
             this._slider = this.QuickSettings._volumeOutput._output;
@@ -49,11 +50,11 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
             try {
                 this._slider.child.add_child(this);
 
-                this.mixerMenuSeparator = new PopupMenu.PopupSeparatorMenuItem()
-                this.mixerMenuVolumeSection = new AirPlayMultiSpeakerControls({ state: this.state })
+                this._mixerMenuSeparator = new PopupMenu.PopupSeparatorMenuItem()
+                this._mixerMenuVolumeSection = new AirPlayMultiSpeakerControls({ state: this.state })
 
-                this._slider.menu.addMenuItem(this.mixerMenuSeparator, 1);
-                this._slider.menu.addMenuItem(this.mixerMenuVolumeSection, 1);
+                this._slider.menu.addMenuItem(this._mixerMenuSeparator, 1);
+                this._slider.menu.addMenuItem(this._mixerMenuVolumeSection, 1);
 
                 this._connectMultiSpeakerMenuSignals();
                 this._setMultiSpeakerMenuVisibility();
@@ -69,11 +70,11 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
          * volume slider.
          */
         destroy() {
-            this.mixerMenuSeparator?.destroy();
-            this.mixerMenuSeparator = null;
+            this._mixerMenuSeparator?.destroy();
+            this._mixerMenuSeparator = null;
 
-            this.mixerMenuVolumeSection?.destroy();
-            this.mixerMenuVolumeSection = null;
+            this._mixerMenuVolumeSection?.destroy();
+            this._mixerMenuVolumeSection = null;
 
             // The parent St.Widget.destroy() will handle removing this button
             // from its parent container (_slider.child).
@@ -88,7 +89,7 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
          * @private
          */
         revert() {
-            this._slider.menu.setHeader("audio-headphones-symbolic", (_)("Sound Output"));
+            this._slider.menu.setHeader("audio-headphones-symbolic", _(DEFAULT_VOLUME_MENU_HEADER));
             this._slider.menu._setSettingsVisibility(Main.sessionMode.allowSettings);
             this._updateSeparatorVisibility();
             this._slider._deviceSection.box.show();
@@ -101,7 +102,7 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
          * @private
          */
         _updateSeparatorVisibility() {
-            //TODO - use the _getMenuItems method to destroy menu items in other classes
+            // TODO - use the _getMenuItems method to destroy menu items in other classes
             for (const item of this._slider.menu._getMenuItems()) {
                 if (!(item instanceof PopupMenu.PopupSeparatorMenuItem)) {
                     continue;
@@ -120,9 +121,9 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
                 this,
                 "clicked",
                 () => {
-                    this.mixerMenuSeparator.actor.show();
-                    this.mixerMenuVolumeSection.box.show();
-                    this._slider.menu.setHeader(this.state.getStateKey("indicatorGIcon"), _("AirPlay-Enabled Speakers"));
+                    this._mixerMenuSeparator.actor.show();
+                    this._mixerMenuVolumeSection.box.show();
+                    this._slider.menu.setHeader(this.state.getGIconFile("indicatorGIcon"), _(COMBINED_SINK_NAME));
                     this._slider._deviceSection.box.hide();
                     this._slider.menu._setSettingsVisibility(false);
                     this._updateSeparatorVisibility();
@@ -134,8 +135,8 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
                 this._slider.menu,
                 "menu-closed",
                 () => {
-                    this.mixerMenuSeparator.actor.hide();
-                    this.mixerMenuVolumeSection.box.hide();
+                    this._mixerMenuSeparator.actor.hide();
+                    this._mixerMenuVolumeSection.box.hide();
                     this.revert();
                 }
             );

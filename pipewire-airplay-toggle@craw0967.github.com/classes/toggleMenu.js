@@ -2,7 +2,7 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
 
-import { INDICATOR_TEXT } from "../constants/config.js";
+import { INDICATOR_TEXT, MULTI_SPEAKER_LABEL, SETTINGS_LABEL } from "../constants/config.js";
 
 /**
  * A mixin that adds a menu to the AirPlay toggle.
@@ -25,7 +25,6 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
         // this.state inherited from AirPlayToggleBase
         
         this._extensionObject = this.state ? this.state.getExtensionObject() : null;
-        this.state.updateGIcon("multiStreamGIcon", "media-podcast-symbolic.svg");
 
         this._createMenuItems();
         this._createSettingsItems();
@@ -66,7 +65,7 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
      * @private
      */
     _createMenuItems() {
-        this._combinedSpeakersMenuItem = new PopupMenu.PopupImageMenuItem(_("Enable Streaming to Multiple Speakers"), this.state.getStateKey("multiStreamGIcon"));
+        this._combinedSpeakersMenuItem = new PopupMenu.PopupImageMenuItem(_(MULTI_SPEAKER_LABEL), this.state.getGIconFile("multiStreamGIcon"));
 
         this._setMenuItemOrnament(this._combinedSpeakersMenuItem, this.state.getSettingsKey("get_boolean", "combined-speakers"));
 
@@ -91,7 +90,7 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
      * @private
      */
     _createSettingsItems() {
-        const settingsItem = this.menu.addAction(_("Extension Settings"),
+        const settingsItem = this.menu.addAction(_(SETTINGS_LABEL),
             () => this._extensionObject.openPreferences());
 
         // Ensure the settings are unavailable when the screen is locked

@@ -2,6 +2,8 @@ import GObject from "gi://GObject";
 //import St from "gi://St";
 
 import * as QuickSettings from "resource:///org/gnome/shell/ui/quickSettings.js";
+import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
+import { MUTE_UNMUTE_LABEL } from "../constants/config.js";
 
 /**
  * A volume slider control for an individual AirPlay sink.
@@ -26,7 +28,7 @@ export const AirPlayOutputSlider = GObject.registerClass(
         constructor({ ...args }) {
             const { state, sink, ...addArgs } = args;
             super({
-                icon_label: "Mute/Unmute",
+                icon_label: _(MUTE_UNMUTE_LABEL),
                 //icon_name:"audio-volume-muted-symbolic",
                 icon_reactive: true,
                 menu_enabled: false,
@@ -132,18 +134,18 @@ export const AirPlayOutputSlider = GObject.registerClass(
             let iconKey = "";
 
             if(volume === 0) {
-                iconKey = "volume0GIcon";
+                iconKey = "volumeGIcon0";
             } else if(volume < 33) {
-                iconKey = "volume1GIcon";
+                iconKey = "volumeGIcon1";
             } else if (volume < 66) {
-                iconKey = "volume2GIcon";
+                iconKey = "volumeGIcon2";
             } else if (volume <= 100) {
-                iconKey = "volume3GIcon";
+                iconKey = "volumeGIcon3";
             } else {
-                iconKey = "volume4GIcon";
+                iconKey = "volumeGIcon4";
             }
 
-            return this.state.getStateKey(iconKey);
+            return this.state.getGIconFile(iconKey);
         }
 
         /**

@@ -50,7 +50,7 @@ export const AirPlayToggleBase = GObject.registerClass(
          * @private
          */
         _setIndicatorIcon() {
-            this.gicon = this.state.getStateKey("indicatorGIcon");
+            this.gicon = this.state.getGIconFile("indicatorGIcon");
             this._setMenuHeader(this.gicon); // The _setMenuHeader() function is in toggleMenu.js
         }
 

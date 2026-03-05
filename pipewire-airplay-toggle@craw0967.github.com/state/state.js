@@ -6,34 +6,7 @@ import { ProcessHandlerMixin } from "./processHandlerMixin.js";
 import { AudioServerMixin } from "./audioServerMixin.js";
 
 import { composeMixins, getGIcon } from "../functions/utils.js";
-
-// Set state defaults
-// TODO - move this to config.js
-const StateData = {
-    //Icons
-    indicatorGIcon: null,
-    speakerEnabledGIcon: null,
-    speakerDisabledGIcon: null,
-    multiStreamGIcon: null,
-    volume0GIcon: null,
-    volume1GIcon: null,
-    volume2GIcon: null,
-    volume3GIcon: null,
-    volume4GIcon: null,
-
-    //PipeWire/PulseAudio Variables
-    audioServerInstalled: false,
-    raopModuleInstalled: false,
-    raopModuleId: null,
-    modulesList: [],
-
-    //Sinks Variables
-    currentCombineModuleId: null,
-    newCombineModuleId: null,
-    combinedSinks: [],
-    raopSinksList: [],
-    raopSinksMap: {}
-};
+import { STATE_DEFAULTS, G_ICON_MAP, INDICATOR_ICON_MAP } from "../constants/config.js";
 
 /**
  * Class representing and managing the state of the extension.
@@ -79,7 +52,7 @@ const State = GObject.registerClass({
         super({ ...args });
         // Simple "deep clone". Won't handle non JSON-safe data types
         // structuredClone() not yet supported and custom deep clone function not necessary at this time
-        this.#data = JSON.parse(JSON.stringify(StateData));
+        this.#data = JSON.parse(JSON.stringify(STATE_DEFAULTS));
         this.#settings = null;
     }
 
@@ -221,6 +194,9 @@ const State = GObject.registerClass({
         if (!this.#extensionObject) {
             this.#extensionObject = obj;
             this.#setSettings(this.#extensionObject.getSettings());
+
+            // Some icons are dependent on the settings, so initialize here
+            this._setupStateGIcons();
         }
     }
 
@@ -239,12 +215,54 @@ const State = GObject.registerClass({
      ************************************/
 
     /**
-     * Updates a GIcon in the state.
+     * Initializes the state icons and sets up listeners for icon-related settings.
+     * @private
+     */
+    _setupStateGIcons() {
+        /* for (const key in Object.keys(G_ICON_MAP)) {
+            this.updateGIcon(key, G_ICON_MAP[key]);
+        } */
+
+        this._setIndicatorGIcon();
+        this.connectSetting("indicator-icon", () => this._setIndicatorGIcon());
+    }
+
+    /**
+     * Sets the indicator icon based on the current extension settings.
+     * Retrieves the icon preference and updates the 'indicatorGIcon' state key.
+     * @private
+     */
+    _setIndicatorGIcon() {
+        let iconKey = this.getSettingsKey("get_string", "indicator-icon")?.length > 0 ? 
+                INDICATOR_ICON_MAP[this.getSettingsKey("get_string", "indicator-icon")] : 
+                INDICATOR_ICON_MAP["option0"];
+        this.updateGIcon("indicatorGIcon", G_ICON_MAP[iconKey]);
+    }
+
+    /**
+     * Updates a Gio.FileIcon in the state.
      * @param {string} key - The state key for the GIcon.
      * @param {string} filename - The filename of the icon.
      */
     updateGIcon(key, filename) {
         this.updateStateKey(key, getGIcon(this, filename));
+    }
+
+    /**
+     * Retrieves a Gio.FileIcon based on an icon key or filename.
+     * @param {string} icon - The icon key or filename.
+     * @returns {Gio.FileIcon} The corresponding file icon.
+     */
+    getGIconFile(icon) {
+        if (this.getStateKey(icon)) {
+            return this.getStateKey(icon);
+        }
+
+        const filename = G_ICON_MAP[icon] ? 
+            G_ICON_MAP[icon] : 
+            icon;
+            
+        return getGIcon(this, filename);
     }
 });
 

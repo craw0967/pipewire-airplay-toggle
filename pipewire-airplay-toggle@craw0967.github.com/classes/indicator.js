@@ -5,8 +5,6 @@ import GObject from "gi://GObject";
 import * as QuickSettings from "resource:///org/gnome/shell/ui/quickSettings.js";
 import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
 
-import { INDICATOR_ICON_MAP } from "../constants/config.js";
-
 import { AirPlayToggle } from "./toggle.js";
 
 /**
@@ -29,10 +27,9 @@ export const AirPlayIndicator = GObject.registerClass(
             super({ ...addArgs });
             
             this.state = state;
-            this._addIndicatorIconToState();
 
             this._indicator = this._addIndicator();
-            this._indicator.gicon = this.state.getStateKey("indicatorGIcon");
+            this._indicator.gicon = this.state.getGIconFile("indicatorGIcon");
 
             this._toggle = new AirPlayToggle({ state: this.state });
             
@@ -42,7 +39,8 @@ export const AirPlayIndicator = GObject.registerClass(
             );
 
             this._setIndicatorIconVisibility();
-            this._connectSettings();
+            this._connectIndicatorSignals();
+            this._connectIndicatorSettings();
         }
 
         /**
@@ -67,25 +65,26 @@ export const AirPlayIndicator = GObject.registerClass(
         }
 
         /**
-         * Updates the state with the currently selected icon for the indicator and toggle switch.
+         * Connects to necessary signals for the indicator.
          * @private
          */
-        _addIndicatorIconToState() {
-            const iconName = this.state.getSettingsKey("get_string", "indicator-icon")?.length > 0 ? INDICATOR_ICON_MAP[this.state.getSettingsKey("get_string", "indicator-icon")] : INDICATOR_ICON_MAP["option0"];
-            this.state.updateGIcon("indicatorGIcon", iconName);
-        };
-
-        /**
-         * Connects to settings changes for the indicator icon and visibility.
-         * @private
-         */
-        _connectSettings() {
-            this.state.connectSetting("indicator-icon", () => {
-                    this._addIndicatorIconToState();
-                    this._indicator.gicon = this.state.getStateKey("indicatorGIcon");
+        _connectIndicatorSignals() {
+            this.state.connectSignal(
+                this.state, 
+                "pipewire-airplay-toggle-state-changed", 
+                (obj, key) => {
+                    if (key === "indicatorGIcon") {
+                        this._indicator.gicon = this.state.getGIconFile("indicatorGIcon");
+                    }
                 }
             );
-            
+        }
+
+        /**
+         * Connects to settings changes for the indicator.
+         * @private
+         */
+        _connectIndicatorSettings() {
             this.state.connectSetting("show-indicator", () => {
                     this._setIndicatorIconVisibility();
                 }
