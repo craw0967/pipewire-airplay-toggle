@@ -1,4 +1,9 @@
-// This mixin is for all functions related to audio server state and state management.
+/**
+ * A mixin for all functions related to audio server state and state management.
+ * @mixin
+ * @param {class} Base - The class to extend.
+ * @returns {class} - A class that extends the Base class with audio server handling functionality.
+ */
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
 
@@ -26,6 +31,11 @@ export const AudioServerMixin = (Base) => class extends Base {
         this._setInitialState();
     }
 
+    /**
+     * Detects if a supported audio server is available.
+     * Sets the initial state of the extension based on the state of the audio server.
+     * @private
+     */
     async _setInitialState() {
         this.updateStateKey("audioServerInstalled", await this._detectAndSetAudioServer());
 
@@ -71,6 +81,9 @@ export const AudioServerMixin = (Base) => class extends Base {
         } 
     }
 
+    /**
+     * Cleans up timeouts and calls the superclass's destroy method.
+     */
     destroy() {
         this._moduleMonitorTimeout = null;
         this._sinkMonitorTimeout = null;
@@ -148,6 +161,11 @@ export const AudioServerMixin = (Base) => class extends Base {
      *   Functions for Module Updates   *
      *                                  *
      ************************************/
+    
+    /**
+     * Updates the list of loaded PulseAudio/PipeWire modules in the state.
+     * @private
+     */
     async _updateModulesList() {
         try {
             const commandArray = [
@@ -191,6 +209,7 @@ export const AudioServerMixin = (Base) => class extends Base {
 
     /**
      * Toggles the state of the RAOP (AirPlay) module by loading or unloading it.
+     * @returns {Promise<boolean>} - A promise that resolves to the new state of AirPlay.
      */
     async toggleAirPlay() {
         if(!this.getStateKey("audioServerInstalled")) {
@@ -248,6 +267,11 @@ export const AudioServerMixin = (Base) => class extends Base {
         }
     }        
 
+    /**
+     * Creates a combined sink module with selected RAOP speakers.
+     * @private
+     * @param {boolean} [setAsDefaultSink=false] - Whether to set the new combined sink as the default.
+     */
     async _createCombinedSinkModule(setAsDefaultSink = false) {
         // The combined sink is not getting created after the raop module is toggled even when the combined-speakers setting is enabled.
         // The issue is that the notify::checked event handler in toggleMenu.js is firing and completing before the "clicked" event handler 
@@ -323,6 +347,10 @@ export const AudioServerMixin = (Base) => class extends Base {
         }
     }
 
+    /**
+     * Toggles the combined sink module based on the 'enabled' parameter.
+     * @param {boolean} enabled - Whether to create or destroy the combined sink module.
+     */
     async toggleCombinedSinkModule(enabled) {
         try {
             if(enabled) {
@@ -342,6 +370,10 @@ export const AudioServerMixin = (Base) => class extends Base {
      *                                  *
      ************************************/
 
+    /**
+     * Updates the list of available RAOP sinks from the audio server.
+     * @private
+     */
     async _updateSinksList() {
         try {
             const commandArray = [
@@ -379,7 +411,11 @@ export const AudioServerMixin = (Base) => class extends Base {
         }
     }
 
-    // Only use with pulseaudio. Pulse loads a module for each raop sink, while the owner module under pipewire is just the module-raop-discover
+    /**
+     * Removes duplicate RAOP sinks, specific to PulseAudio behavior.
+     * @private
+     * @param {Array<object>} sinks - An array of RAOP sink objects.
+     */
     _removeDuplicateRaopSinks(sinks) {
         // TODO - this function removes duplicates even when the extension is "off" (not if the extension is disabled)
         // This is due to the way it's always monitoring pactl subscribe and reacting to events.
@@ -433,6 +469,11 @@ export const AudioServerMixin = (Base) => class extends Base {
         return dupSinkOwnerModules;
     }
 
+    /**
+     * Parses raw sink data into a structured map and updates the state.
+     * @private
+     * @param {Array<object>} sinks - An array of raw sink objects to parse.
+     */
     _parseRaopSinks(sinks) {
         let parsedSinks = {};
         const combinedSinks = this.getSettingsKey("get_string", "combined-sinks") ? this.getSettingsKey("get_string", "combined-sinks").split(",") : [];
@@ -471,6 +512,11 @@ export const AudioServerMixin = (Base) => class extends Base {
         this.updateStateKey("raopSinksMap", mergedSinks);
     }
 
+    /**
+     * Updates the volume for a specific sink.
+     * @param {string} sinkId - The ID of the sink to update.
+     * @param {number} volume - The new volume level (e.g., 50 for 50%).
+     */
     async updateSinkVolume(sinkId, volume) {
         const raopSinksMap = this.getStateKey("raopSinksMap");
         const volumePercent = `${volume.toString()}%`;
@@ -495,6 +541,11 @@ export const AudioServerMixin = (Base) => class extends Base {
         }
     }
 
+    /**
+     * Toggles the mute state of a sink or sets it explicitly.
+     * @param {string} sinkId - The ID of the sink to update.
+     * @param {0|1|null} [mute=null] - The mute state to set (1 for mute, 0 for unmute). Toggles if null.
+     */
     async toggleSinkMute(sinkId, mute = null) {
         const commandArray = [
             "pactl",
@@ -513,6 +564,10 @@ export const AudioServerMixin = (Base) => class extends Base {
         }
     }
 
+    /**
+     * Updates the list of sinks included in the combined sink.
+     * @param {string} sinkId - The ID of the sink to add or remove from the combined group.
+     */
     async updateCombinedSinks(sinkId) {
         let raopSinksMap = this.getStateKey("raopSinksMap");
         raopSinksMap[sinkId].combined = raopSinksMap[sinkId].combined === true ? false : true;
@@ -538,6 +593,11 @@ export const AudioServerMixin = (Base) => class extends Base {
         }, 3000);
     }
 
+    /**
+     * Sets the default audio sink.
+     * @private
+     * @param {string} sinkId - The ID of the sink to set as default.
+     */
     async _setDefaultSink(sinkId) {
         const commandArray = [
             "pactl", 
@@ -560,6 +620,11 @@ export const AudioServerMixin = (Base) => class extends Base {
         }
     }
 
+    /**
+     * Destroys the combined speakers sink by unloading its module.
+     * @private
+     * @param {string} moduleId - The ID of the combined sink module to unload.
+     */
     async _destroyCombinedSpeakersSink(moduleId) {
         try {
             await this._unloadModule(moduleId);
@@ -582,6 +647,12 @@ export const AudioServerMixin = (Base) => class extends Base {
         }
     }
 
+    /**
+     * Retrieves the sink ID for a given module ID.
+     * @private
+     * @param {string} moduleId - The module ID to find the corresponding sink for.
+     * @returns {Promise<string|null>} A promise that resolves to the sink ID, or null if not found.
+     */
     async _getCombinedSinkId(moduleId) {
         try {
             const commandArray = [

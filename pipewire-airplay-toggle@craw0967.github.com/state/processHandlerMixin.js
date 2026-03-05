@@ -19,7 +19,7 @@ export const ProcessHandlerMixin = (Base) => class extends Base {
 
     /**
      * Adds a process to the list of managed processes.
-     * @param {object} proc - The process to add.
+     * @param {Gio.Subprocess} proc - The process to add.
      */
     addProcess(proc) {
         if (!this.#processHandlers.includes(proc)) {

@@ -4,7 +4,7 @@ import { logErr } from "../functions/logs.js";
  * A mixin for managing signals.
  * @mixin
  * @param {class} Base - The class to extend.
- * @returns {class} - A class that extends the Base class with process handling functionality.
+ * @returns {class} - A class that extends the Base class with signal handling functionality.
  */
 export const SignalHandlerMixin = (Base) => class extends Base {
     #signalHandlers;
@@ -25,7 +25,7 @@ export const SignalHandlerMixin = (Base) => class extends Base {
      * @param {string} signalName - The name of the signal to connect to the object
      * @param {function} callback - The function to execute when the signal event is triggered
      * @throws {Error} Throws an error if the signal connect fails
-     * @returns {number | null} - The ID of the handler, or null on error.
+     * @returns {number} - The ID of the handler.
      */
     connectSignal(obj, signalName, callback) {
         try {
@@ -38,6 +38,11 @@ export const SignalHandlerMixin = (Base) => class extends Base {
         }
     }
 
+    /**
+     * Disconnects a signal and removes it from the list of managed signals.
+     * @param {object} obj - The object to disconnect the signal from.
+     * @param {number} id - The ID of the handler to disconnect.
+     */
     disconnectSignal(obj, id) {
         try {
             const index = this.#signalHandlers.findIndex((signal) => {

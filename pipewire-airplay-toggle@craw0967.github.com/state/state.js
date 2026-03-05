@@ -8,6 +8,7 @@ import { AudioServerMixin } from "./audioServerMixin.js";
 import { composeMixins, getGIcon } from "../functions/utils.js";
 
 // Set state defaults
+// TODO - move this to config.js
 const StateData = {
     //Icons
     indicatorGIcon: null,
@@ -36,7 +37,6 @@ const StateData = {
 
 /**
  * Class representing and managing the state of the extension.
- * This class is a singleton.
  * @class State
  * @extends GObject.Object
  * @-side-effect-free
@@ -49,9 +49,25 @@ const State = GObject.registerClass({
         },
     }
 }, class State extends GObject.Object {
-    // Private Variables
+    /**
+     * The state data.
+     * @private
+     * @type {object}
+     */
     #data;
+
+    /**
+     * The settings object.
+     * @private
+     * @type {Gio.Settings}
+     */
     #settings;
+
+    /**
+     * The extension object.
+     * @private
+     * @type {Extension}
+     */
     #extensionObject;
 
     /**
@@ -81,9 +97,11 @@ const State = GObject.registerClass({
     // But the idea is that no other component should be modifying the state directly
     // It should be managed in this class only
 
-    /* *******
-     * State Functions
-     * *******/
+    /************************************
+     *                                  *
+     *         State Functions          *
+     *                                  *
+     ************************************/
 
     /**
      * Updates a key in the state data.
@@ -127,6 +145,7 @@ const State = GObject.registerClass({
      * Method to update the state and notify listeners.
      * @param {string} key - The key to update.
      * @param {*} value - The new value.
+     * @param {boolean} [notify=true] - Whether to emit a state change signal.
      */
     updateStateKey(key, value, notify = true) {
         this.#updateStateKey(key, value);
@@ -136,9 +155,11 @@ const State = GObject.registerClass({
         }
     }
 
-    /* *******
-     * Settings Functions
-     * *******/
+    /************************************
+     *                                  *
+     *        Settings Functions        *
+     *                                  *
+     ************************************/
 
     /**
      * Sets the settings object. This should only be done once.
@@ -186,9 +207,11 @@ const State = GObject.registerClass({
         return null;
     }
 
-    /* *******
-     * Extension Object Functions (PipeWireAirPlayToggleExtension class)
-     * *******/
+    /************************************
+     *                                  *
+     *    Extension Object Functions    *
+     *                                  *
+     ************************************/
 
     /**
      * Sets the extension object and initializes settings. This should only be done once.
@@ -209,14 +232,29 @@ const State = GObject.registerClass({
         return this.#extensionObject;
     }
 
-    /* *******
-     * UI Functions
-     * *******/
+    /************************************
+     *                                  *
+     *           UI Functions           *
+     *                                  *
+     ************************************/
+
+    /**
+     * Updates a GIcon in the state.
+     * @param {string} key - The state key for the GIcon.
+     * @param {string} filename - The filename of the icon.
+     */
     updateGIcon(key, filename) {
         this.updateStateKey(key, getGIcon(this, filename));
     }
 });
 
+/**
+ * The final, composed state class for the extension.
+ * This class is a GObject-registered class that composes the base State class with 
+ * various mixins for handling signals, settings, processes, and the audio server.
+ * @class AirPlayToggleExtensionState
+ * @extends State
+ */
 export const AirPlayToggleExtensionState = GObject.registerClass(class AirPlayToggleExtensionState extends composeMixins(
     State,
     SignalHandlerMixin,
