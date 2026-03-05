@@ -9,6 +9,13 @@ import { PREFS_PAGES } from "./constants/config.js";
 import { detectAudioServer } from "./functions/utils.js";
 import { logErr } from "./functions/logs.js";
 
+/**
+ * A GObject class to represent an item in a combo box model.
+ * It holds a label for display and a corresponding value.
+ *
+ * @class ComboOptions
+ * @extends GObject.Object
+ */
 const ComboOptions = GObject.registerClass({
     Properties: {
         "label": GObject.ParamSpec.string(
@@ -21,13 +28,30 @@ const ComboOptions = GObject.registerClass({
             null),
     },
 }, class ComboOptions extends GObject.Object {
+    /**
+     * @constructor
+     * @param {string} label - The display label for the option.
+     * @param {string} value - The underlying value for the option.
+     */
     constructor(label, value) {
         super({label, value});
     }
 });
 
-/** Class representing an Extension Preferences Window */
+/**
+ * The preferences window for the PipeWire AirPlay Toggle extension.
+ *
+ * @class PipeWireAirPlayTogglePreferences
+ * @extends ExtensionPreferences
+ */
 export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferences {
+    /**
+     * Populates the preferences window with pages, groups, and rows.
+     * This method is called by the GNOME Shell when the preferences window is opened.
+     *
+     * @param {Adw.PreferencesWindow} window - The preferences window to fill.
+     * @async
+     */
     async fillPreferencesWindow(window) {
         const pagesConfig = PREFS_PAGES;
         window._settings = this.getSettings();
@@ -77,13 +101,14 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         }
     }
 
-    /***
-     * Create a new Adw.PreferencesGroup from a group configuration object.
+    /**
+     * Creates a new Adw.PreferencesGroup from a group configuration object.
      *
-     * @param {Object} group - Group configuration object.
+     * @private
+     * @param {object} group - The group configuration object.
      * @param {string} [group.title] - The group title.
      * @param {string} [group.description] - The group description.
-     * @returns {Adw.PreferencesGroup} A new Adw.PreferencesGroup.
+     * @returns {Adw.PreferencesGroup} A new preferences group.
      */
     _createGroup(group) {
         return new Adw.PreferencesGroup({
@@ -92,13 +117,14 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         });
     }
 
-    /***
-     * Create a new Adw.SwitchRow from a switch configuration object.
+    /**
+     * Creates a new Adw.SwitchRow from a switch configuration object.
      *
-     * @param {Object} row - Switch Row configuration object.
+     * @private
+     * @param {object} row - The switch row configuration object.
      * @param {string} [row.title] - The switch title.
      * @param {string} [row.subtitle] - The switch subtitle.
-     * @returns {Adw.SwitchRow} A new Adw.SwitchRow.
+     * @returns {Adw.SwitchRow} A new switch row.
      */
     _createSwitchRow(row) {
         return new Adw.SwitchRow({
@@ -107,13 +133,14 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         });
     }
 
-    /***
-     * Create a new Gio.ListStore from a list of ComboOptions objects.
+    /**
+     * Creates a new Gio.ListStore for a combo box from a model configuration.
      *
-     * @param {Object[]} modelOptions - A list of objects representing ComboOptions objects.
+     * @private
+     * @param {Array<object>} modelOptions - A list of option objects.
      * @param {string} modelOptions.label - The label for the option.
      * @param {string} modelOptions.value - The value for the option.
-     * @returns {Gio.ListStore} A new Gio.ListStore containing the options.
+     * @returns {Gio.ListStore} A new list store containing ComboOptions.
      */
     _createModel(modelOptions) {
         const model = new Gio.ListStore({
@@ -126,14 +153,15 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         return model;
     }
 
-    /***
-     * Create a new Adw.ComboRow from a combo configuration object.
+    /**
+     * Creates a new Adw.ComboRow from a combo configuration object.
      *
-     * @param {Object} row - Combo Row configuration object.
+     * @private
+     * @param {object} row - The combo row configuration object.
      * @param {string} [row.title] - The combo title.
      * @param {string} [row.subtitle] - The combo subtitle.
-     * @param {Object[]} row.model - A list of objects representing ComboOptions objects.
-     * @returns {Adw.ComboRow} A new Adw.ComboRow.
+     * @param {Array<object>} row.model - The model data for the combo options.
+     * @returns {Adw.ComboRow} A new combo row.
      */
     _createComboRow(row) {
         return new Adw.ComboRow({
@@ -144,30 +172,28 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         });
     }
 
-    /***
-     * Connects the switch row to the extension's settings notify event handler.
+    /**
+     * Connects the switch row to the extension's settings.
+     * Establishes a two-way binding between the switch's active state and the GSettings key.
      *
-     * When the switch is toggled, the extension's settings are updated.
-     * When the extension's settings change, the switch is updated.
-     *
-     * @param {Adw.PreferencesWindow} window - The window containing the switch row and the extension's settings
-     * @param {Object} rowConfig - The configuration object for the switch row.
-     * @param {string} rowConfig.settingsKey - The key in the extension's settings to bind to.
+     * @private
+     * @param {Adw.PreferencesWindow} window - The preferences window, which holds the settings object.
+     * @param {object} rowConfig - The configuration object for the switch row.
+     * @param {string} rowConfig.settingsKey - The GSettings key to bind to.
      */
     _connectSwitchRow(window, rowConfig) {
         window._settings.bind(rowConfig.settingsKey, this._switchRow, "active",
             Gio.SettingsBindFlags.DEFAULT);
     }
 
-    /***
-     * Connects the combo box row to the extension's settings notify event handler.
-     * 
-     * When the selected item of the combo box changes, the extension's settings are updated.
-     * When the extension's settings change, the selected item of the combo box is updated.
-     * 
-     * @param {Adw.PreferencesWindow} window - The window containing the combo box and the extension's settings.
-     * @param {Object} rowConfig - The configuration object for the combo box row.
-     * @param {string} rowConfig.settingsKey - The key in the extension's settings to bind to.
+    /**
+     * Connects the combo row to the extension's settings.
+     * Establishes manual two-way synchronization between the combo box selection and the GSettings key.
+     *
+     * @private
+     * @param {Adw.PreferencesWindow} window - The preferences window, which holds the settings object.
+     * @param {object} rowConfig - The configuration object for the combo box row.
+     * @param {string} rowConfig.settingsKey - The GSettings key to connect to.
      */
     _connectComboRow(window, rowConfig) {
         // Update the setting if a new option is selected
@@ -187,10 +213,12 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         this._comboRow.set_selected(this._findIndexByValue(this._comboRow.model, initialValue));
     }
 
-    /***
-     * Detects the audio server and updates the settings if needed.
-     * 
-     * @param {Adw.PreferencesWindow} window - The window containing the extension's settings.
+    /**
+     * Detects the active audio server and updates the 'audio-server' setting if it's different.
+     *
+     * @private
+     * @param {Adw.PreferencesWindow} window - The preferences window, which holds the settings object.
+     * @async
      */
     async _detectAndSetAudioServer(window) {
         try {
@@ -206,12 +234,13 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         
     }
 
-    /***
-     * Find the index of an item in a Gio.ListStore by its value property.
-     * 
+    /**
+     * Finds the index of an item in a Gio.ListStore by its 'value' property.
+     *
+     * @private
      * @param {Gio.ListStore} model - The list store to search.
-     * @param {string} value - The value to search for.
-     * @returns {number} The index of the item, or 0 if not found.
+     * @param {string} value - The value to find.
+     * @returns {number} The index of the item, or 0 if not found (as a fallback).
      */
     _findIndexByValue(model, value) {
         for (let i = 0; i < model.get_n_items(); i++) {
