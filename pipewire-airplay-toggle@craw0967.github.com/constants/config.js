@@ -204,7 +204,7 @@ export const MUTE_UNMUTE_LABEL = _("Mute/Unmute");
  * @type {object}
  */
 export const STATE_DEFAULTS = {
-    //Icons
+    //UI Variables
     indicatorGIcon: null,
 
     //PipeWire/PulseAudio Variables

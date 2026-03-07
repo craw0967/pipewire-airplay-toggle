@@ -256,11 +256,7 @@ export async function detectAudioServer() {
             "pactl", 
             "info"
         ];
-        const output = await asyncExecCommandAndReadOutput(
-            commandArray,
-            null,
-            null
-        );
+        const output = await asyncExecCommandAndReadOutput(commandArray);
 
         if (output && output.length > 0) {
             const filtered = output.filter((line) => {

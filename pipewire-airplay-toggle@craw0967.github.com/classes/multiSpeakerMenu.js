@@ -48,6 +48,7 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
             // Catch the error and don't load the menu
             // This race condition should be prevented in the extension.js enable() function
             try {
+                this.visible = false;
                 this._slider.child.add_child(this);
 
                 this._mixerMenuSeparator = new PopupMenu.PopupSeparatorMenuItem()
@@ -152,6 +153,7 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
                 "pipewire-airplay-toggle-state-changed", 
                 (obj, key) => {
                     if (key === "modulesList") {
+                        console.log('checking menu visibility');
                         this._setMultiSpeakerMenuVisibility();
                     }
                 }

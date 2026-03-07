@@ -72,9 +72,9 @@ export const AirPlayIndicator = GObject.registerClass(
             this.state.connectSignal(
                 this.state, 
                 "pipewire-airplay-toggle-state-changed", 
-                (obj, key) => {
+                (obj, key, data) => {
                     if (key === "indicatorGIcon") {
-                        this._indicator.gicon = this.state.getGIconFile("indicatorGIcon");
+                        this._indicator.gicon = this.state.getGIconFile(data.new);
                     }
                 }
             );

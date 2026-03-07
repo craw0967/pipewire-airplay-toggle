@@ -4,7 +4,7 @@
  * @param {class} Base - The class to extend.
  * @returns {class} - A class that extends the Base class with process handling functionality.
  */
-export const ProcessHandlerMixin = (Base) => class extends Base {
+export const ProcessMixin = (Base) => class extends Base {
     #processHandlers;
 
     /**

@@ -91,7 +91,7 @@ export const AirPlayOutputSlider = GObject.registerClass(
             this._muteSignalId = this.state.connectSignal(
                 this, 
                 "icon-clicked",
-                () => this.state.toggleSinkMute(this._sink.id)
+                () => this.state.updateSinkMute(this._sink.id)
             );
 
             this._stateSignalId = this.state.connectSignal(

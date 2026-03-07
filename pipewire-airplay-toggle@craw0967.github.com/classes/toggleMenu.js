@@ -106,11 +106,6 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
      * @private
      */
     _connectToggleMenuSignals() {
-        // Toggle the combined sink module, if enabled
-        this.state.connectSignal(this, "notify::checked", () => {
-            this._toggleCombinedSpeakers();
-        });
-
         this.state.connectSignal(this._combinedSpeakersMenuItem, "activate", () => {
             // Update the "combined-speakers" gsetting. Resulting setting change event is connected in this._connectToggleMenuSettings()
             this.state.updateSettingsKey("set_boolean", "combined-speakers", !this.state.getSettingsKey("get_boolean", "combined-speakers"));
@@ -126,22 +121,7 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
     _connectToggleMenuSettings() {
         // Toggle the combined sink module, if enabled
         this.state.connectSetting("combined-speakers", () => {
-            this._toggleCombinedSpeakers();
+            this._setMenuItemOrnament(this._combinedSpeakersMenuItem, this.state.getSettingsKey("get_boolean", "combined-speakers"));
         });
-    }
-
-    /**
-     * Toggles the creation or destruction of the combined sink module.
-     * This is based on whether the "combined-speakers" setting is enabled and
-     * whether the main AirPlay toggle is active.
-     *
-     * @private
-     */
-    _toggleCombinedSpeakers() {
-        const combinedSpeakersEnabled = (this.state.getSettingsKey("get_boolean", "combined-speakers") && this.checked) ? true : false;
-        
-        this._setMenuItemOrnament(this._combinedSpeakersMenuItem, this.state.getSettingsKey("get_boolean", "combined-speakers"));
-        
-        this.state.toggleCombinedSinkModule(combinedSpeakersEnabled);
     }
 }

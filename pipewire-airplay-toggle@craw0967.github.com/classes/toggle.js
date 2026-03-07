@@ -31,8 +31,8 @@ export const AirPlayToggleBase = GObject.registerClass(
             });
 
             this.state = state;
-            
             this.checked = this.state.getStateKey("modulesList").includes("module-raop-discover");
+
             this._setIndicatorIcon();
             this._connectToggleSignals();
         }
@@ -61,43 +61,34 @@ export const AirPlayToggleBase = GObject.registerClass(
         _connectToggleSignals() {
             this.state.connectSignal(this, "clicked", () => {
                 if (this.state.getStateKey("audioServerInstalled")) {
-                    this._toggleAirPlay();
+                    this._toggleRAOPModule();
                 }
             });
 
-            this.state.connectSignal(this.state, "pipewire-airplay-toggle-state-changed", async (obj, key) => {
+            this.state.connectSignal(this.state, "pipewire-airplay-toggle-state-changed", (obj, key, data) => {               
                 if (key === "modulesList") {
-                    // If the checked state of the toggle gets out of sync, resync it
-                    // This is primarily for if the user manually enables/disables module-raop-discover
-                    if(this.checked !== this.state.getStateKey("modulesList").includes("module-raop-discover")) {
-                        this.checked = this.state.getStateKey("modulesList").includes("module-raop-discover");
-                    }
+                    // Update the super class's checked state. This is updated by the this.state.toggleRAOPModule() function
+                    this.checked = data.new.includes("module-raop-discover");
+                }
+                if (key === "indicatorGIcon") {
+                    this._setIndicatorIcon();
                 }
             });
-
-            this.state.connectSignal(
-                this.state, 
-                "pipewire-airplay-toggle-state-changed", 
-                (obj, key) => {
-                    if (key === "indicatorGIcon") {
-                        this._setIndicatorIcon();
-                    }
-                }
-            );
         }
 
         /**
          * Toggles the state of the RAOP (AirPlay) module by loading or unloading it.
          * @private
          */
-        async _toggleAirPlay() {
+        async _toggleRAOPModule() {
             try {
-                await this.state.toggleAirPlay();
-                // Update "checked" after we toggle the RAOP module
-                // This ensures the state is updated before we trigger the "notify::checked" signal handler
-                // Update here instead of waiting on the emission from this.state 
-                // so the user doesn't notice the latency in the UI
-                this.checked = !this.checked;
+                // Users can click the button faster than these events process
+                // This can cause "entity exists" failures
+                // The method's error handling handles these errors and resets the state of "checked"
+                // Appears to be a minor nuisance with no impact to the extension, 
+                // but will add log entries if user has debug logging on
+                // TODO - determine if there is a reasonable fix that prevents users from oversending requests
+                await this.state.toggleRAOPModule();
             } catch (err) {
                 logErr(this.state, err);
             }
