@@ -152,8 +152,6 @@ export class AudioServerHandler {
             // - If RAOP was just disabled, the existing combined sink (which depends
             //   on RAOP sinks) must be destroyed.
             await this.toggleCombinedSinkModule();
-            // It's not likely, but this could still lead to a timing issue where this second module load triggers a state updated event.
-            // We might want to combine the module loads into one command to remove all possibility
 
         } catch (err) {
             this.state.updateStateKey("modulesList", currentModulesList);
@@ -174,7 +172,7 @@ export class AudioServerHandler {
         try {
             const enabled = this.state.getSettingsKey("get_boolean", "combined-speakers") && this.state.getStateKey("modulesList").includes("module-raop-discover")
             if(enabled) {
-                await this._createCombinedSinkModule();
+                await this._createCombinedSinkModule(true);
             } else if(!enabled && this.state.getStateKey("currentCombineModuleId")) {
                 await this._destroyCombinedSpeakersSink(this.state.getStateKey("currentCombineModuleId"));
             }
@@ -327,7 +325,7 @@ export class AudioServerHandler {
      */
     async _updateSinksList() {
         try {
-            const output = await this._getSinksList(false, true);
+            const output = await this._getSinksList(false, true); // TODO - would like to parse this without --format=json so that we can always get the correct sink description
 
             const parsedOutput = output?.length > 0 ? JSON.parse(output) : null;
             const filteredSinks = parsedOutput ? parsedOutput.filter((sink) => {
@@ -364,7 +362,7 @@ export class AudioServerHandler {
      */
     _parseRaopSinks(sinks) {
         let parsedSinks = {};
-        const combinedSinks = this.state.getSettingsKey("get_string", "combined-sinks") ? this.state.getSettingsKey("get_string", "combined-sinks").split(",") : [];
+        const combinedSinks = this.state.getSettingsKey("get_string", "combined-sinks")?.split(",") || [];
 
         sinks.forEach((sink) => {
             parsedSinks[sink.index.toString()] = {
@@ -414,13 +412,27 @@ export class AudioServerHandler {
             return;
         }
 
+        console.log('the sinks map before starting validation - ', this.state.getStateKey("raopSinksMap"));
+        // TODO - test this in pulseaudio and confirm it works
+        // Before validating and building, explicitly refresh our sink list from the
+        // audio server. This ensures we have the most up-to-date information,
+        // resolving the race condition where a new RAOP sink might not have been
+        // detected yet.
+        await this._updateSinksList();
+
+        console.log('the sinks map after starting validation - ', this.state.getStateKey("raopSinksMap"));
+        
+        console.log('the combined sinks before validation - ', this.state.getSettingsKey("get_string", "combined-sinks"));
+
         const combinedSinkName = _(COMBINED_SINK_NAME);
 
-        // There is an issue in pulseaudio, and maybe pipewire as well, where the modules fails to load if any sinks added are not valid
-        // Sinks are not valid if they cannot be found, because the name is incorrect, the sink was removed, or most often
-        // because the sinks are not quite loaded fast enough now that we load the raop and the combine sinks almost immediately one after the other.
-        // This seems to be more of an issue with pulseaudio than pipewire
-        let combinedSinks = this._getValidCombinedSinks();
+        // We must validate the list of combined sinks before passing it to `pactl`.
+        // If the list contains a sink name that no longer exists (e.g., a speaker
+        // was turned off), the `load-module` command will fail. This function
+        // ensures we only use sinks that are currently available.
+        let combinedSinks = this._getValidCombinedSinks(); // If this is triggered repeatedly too quickly, then we can lose the correct state.
+
+        console.log('the combined sinks after validation - ', combinedSinks);
 
         if (combinedSinks !== this.state.getSettingsKey("get_string", "combined-sinks")) {
             this.state.updateSettingsKey("set_string", "combined-sinks", combinedSinks);
