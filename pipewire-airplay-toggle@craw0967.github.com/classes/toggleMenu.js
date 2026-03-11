@@ -121,6 +121,7 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
     _connectToggleMenuSettings() {
         // Toggle the combined sink module, if enabled
         this.state.connectSetting("combined-speakers", () => {
+            this.state.toggleCombinedSinkModule();
             this._setMenuItemOrnament(this._combinedSpeakersMenuItem, this.state.getSettingsKey("get_boolean", "combined-speakers"));
         });
     }

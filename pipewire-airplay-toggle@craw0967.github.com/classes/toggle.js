@@ -17,6 +17,8 @@ import { AirPlayToggleMenu } from "./toggleMenu.js";
  */
 export const AirPlayToggleBase = GObject.registerClass(
     class AirPlayToggleBase extends QuickSettings.QuickMenuToggle {
+        _toggleRAOPModuleInProgress = false;
+
         /**
          * @constructor
          * @param {object} args - The constructor arguments.
@@ -42,6 +44,8 @@ export const AirPlayToggleBase = GObject.registerClass(
          * This should be called when the extension is being disabled or unloaded.
          */
         destroy() {
+            this._toggleRAOPModuleInProgress = null;
+
             super.destroy();
         }
 
@@ -84,11 +88,12 @@ export const AirPlayToggleBase = GObject.registerClass(
             try {
                 // Users can click the button faster than these events process
                 // This can cause "entity exists" failures
-                // The method's error handling handles these errors and resets the state of "checked"
-                // Appears to be a minor nuisance with no impact to the extension, 
-                // but will add log entries if user has debug logging on
-                // TODO - determine if there is a reasonable fix that prevents users from oversending requests
-                await this.state.toggleRAOPModule();
+                // Implemented block to prevent this from happening, even though errors failed gracefully
+                if(!this._toggleRAOPModuleInProgress) {
+                    this._toggleRAOPModuleInProgress = true;
+                    await this.state.toggleRAOPModule();
+                    this._toggleRAOPModuleInProgress = false;
+                }
             } catch (err) {
                 logErr(this.state, err);
             }

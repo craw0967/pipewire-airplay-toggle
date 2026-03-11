@@ -217,7 +217,6 @@ export const STATE_DEFAULTS = {
     currentCombineModuleId: null,
     newCombineModuleId: null,
     combinedSinks: [],
-    raopSinksList: [],
     raopSinksMap: {}
 };
 

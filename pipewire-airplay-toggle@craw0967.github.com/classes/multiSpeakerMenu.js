@@ -153,7 +153,6 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
                 "pipewire-airplay-toggle-state-changed", 
                 (obj, key) => {
                     if (key === "modulesList") {
-                        console.log('checking menu visibility');
                         this._setMultiSpeakerMenuVisibility();
                     }
                 }

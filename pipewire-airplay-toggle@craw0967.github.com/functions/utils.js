@@ -89,6 +89,34 @@ function isObject(value) {
 }
 
 /**
+ * Recursively creates a "stable" version of an object by sorting its keys
+ * at all levels. This is used to create a consistent string representation
+ * for comparison, regardless of key order.
+ * @param {*} obj - The object, array, or primitive to stabilize.
+ * @returns {*} A new object/array with sorted keys, or the original primitive.
+ */
+export function getStableObject(obj) {
+    if (obj === null || typeof obj !== 'object') {
+        return obj;
+    }
+
+    // For arrays, we stabilize each element but preserve the order,
+    // as order is significant (e.g., for audio channels).
+    if (Array.isArray(obj)) {
+        return obj.map(getStableObject);
+    }
+
+    const stableObj = {};
+    const sortedKeys = Object.keys(obj).sort();
+    
+    for (const key of sortedKeys) {
+        stableObj[key] = getStableObject(obj[key]);
+    }
+    
+    return stableObj;
+}
+
+/**
  * Executes a command asynchronously and returns its stdout as an array of strings.
  * This function spawns a subprocess and waits for it to complete.
  *
