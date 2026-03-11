@@ -374,10 +374,7 @@ const State = GObject.registerClass({
             return;
         }
 
-        if(this.#audioHandler._toggleRAOPModuleInProgress) {
-            return;
-        }
-        this._toggleRAOPModuleInProgress = await this.#audioHandler.toggleRAOPModule();
+        await this.#audioHandler.toggleRAOPModule();
     }
 
     /**

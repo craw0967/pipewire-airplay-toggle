@@ -22,6 +22,9 @@ export class AudioServerHandler {
     _moduleMonitorTimeout;
     _sinkMonitorTimeout;
     _createSinksTimeout;
+    _resolveSinksReady = null;
+    _sinksReadySignalId = null;
+    _toggleRAOPModuleInProgress = false;
 
     /**
      * @constructor
@@ -48,6 +51,8 @@ export class AudioServerHandler {
         this._moduleMonitorTimeout = null;
         this._sinkMonitorTimeout = null;
         this._createSinksTimeout = null;
+        this._cleanupWaitForSinks();
+        this._toggleRAOPModuleInProgress = null;
     }
 
     /**
@@ -118,51 +123,132 @@ export class AudioServerHandler {
      * Toggles the state of the RAOP (AirPlay) module by loading or unloading it.
      */
     async toggleRAOPModule() {
+        if (this._toggleRAOPModuleInProgress) {
+            return;
+        }
+
         if(!this.state.getStateKey("audioServerInstalled")) {
             this._notifyMissingDependencies();
             return;
         }
 
-        const currentModulesList = this.state.getStateKey("modulesList");
+        this._toggleRAOPModuleInProgress = true;
         
-        let modulesList = this.state.getStateKey("modulesList");
-        const index = modulesList.indexOf("module-raop-discover");
-
-        if (index === -1) {
-            modulesList.push("module-raop-discover");
-        } else if (modulesList.length > 0) {
-            modulesList.splice(index, 1);
-        }
-
-        this.state.updateStateKey("modulesList", modulesList);
-
         try {
-            let loadRaopModule = modulesList.includes("module-raop-discover");
-            if(!loadRaopModule) {
-                const fallbackSinkId = await this._determineFallbackSink();
-                if(fallbackSinkId) {
-                    await this._moveActiveStreams(this.state.getStateKey("currentCombineModuleId"), fallbackSinkId, true);
+            const currentModulesList = this.state.getStateKey("modulesList");
+            
+            let modulesList = this.state.getStateKey("modulesList");
+            const index = modulesList.indexOf("module-raop-discover");
+
+            if (index === -1) {
+                modulesList.push("module-raop-discover");
+            } else if (modulesList.length > 0) {
+                modulesList.splice(index, 1);
+            }
+
+            this.state.updateStateKey("modulesList", modulesList);
+
+            try {
+                let loadRaopModule = modulesList.includes("module-raop-discover");
+                if (!loadRaopModule) {
+                    const fallbackSinkId = await this._determineFallbackSink();
+                    if (fallbackSinkId) {
+                        await this._moveActiveStreams(this.state.getStateKey("currentCombineModuleId"), fallbackSinkId, true);
+                    }
+                    await this._loadUnloadModule(loadRaopModule, "module-raop-discover");
+                } else {
+                    // When loading the module, we need to wait for the sinks to be discovered
+                    // before we can create a combined sink with them.
+                    const sinksReadyPromise = this._waitForExpectedSinks();
+                    await this._loadUnloadModule(loadRaopModule, "module-raop-discover");
+                    try {
+                        // Wait for sinks to appear, with a timeout.
+                        await sinksReadyPromise;
+                    } catch (err) {
+                        logErr(this.state, err.message);
+                    }
+                }
+
+                // Now that we've loaded/unloaded and waited if necessary, update the combined sink.
+                await this.toggleCombinedSinkModule();
+
+            } catch (err) {
+                this.state.updateStateKey("modulesList", currentModulesList);
+                
+                logErr(this.state, err);
+                
+                const errMessage = err?.message ? err.message : err;
+                if (errMessage?.includes("Module initialization failed") || (errMessage?.includes("Failed to open module") && errMessage?.includes("module-raop-discover"))) {
+                    this._notifyMissingDependencies();
                 }
             }
-            await this._loadUnloadModule(loadRaopModule, "module-raop-discover");
-
-            // After loading/unloading the RAOP discovery module, we must immediately
-            // check the state of the combined sink.
-            // - If RAOP was just enabled, a combined sink might need to be created.
-            // - If RAOP was just disabled, the existing combined sink (which depends
-            //   on RAOP sinks) must be destroyed.
-            await this.toggleCombinedSinkModule();
-
-        } catch (err) {
-            this.state.updateStateKey("modulesList", currentModulesList);
-            
-            logErr(this.state, err);
-            
-            const errMessage = err?.message ? err.message : err;
-            if (errMessage?.includes("Module initialization failed") || (errMessage?.includes("Failed to open module") && errMessage?.includes("module-raop-discover"))) {
-                this._notifyMissingDependencies();
-            }
+        } finally {
+            this._toggleRAOPModuleInProgress = false;
         }
+    }
+
+    /**
+     * Creates a promise that resolves when expected sinks appear or rejects on timeout.
+     * Expected sinks are read from the 'combined-sinks' setting. This is used to
+     * solve a race condition where we try to create a combined sink before the
+     * RAOP sinks have been discovered by the audio server.
+     * @private
+     * @returns {Promise<void>} A promise that resolves when sinks are ready.
+     */
+    _waitForExpectedSinks() {
+        const expectedSinksSetting = this.state.getSettingsKey("get_string", "combined-sinks");
+        if (!expectedSinksSetting) {
+            return Promise.resolve(); // Nothing to wait for
+        }
+
+        // This promise will be raced with a timeout.
+        const waitPromise = new Promise(resolve => {
+            // Store the resolver so the signal handler can call it.
+            this._resolveSinksReady = resolve;
+
+            // The signal handler will check if the sinks are ready.
+            this._sinksReadySignalId = this.state.connectSignal(
+                this.state,
+                "pipewire-airplay-toggle-state-changed",
+                (obj, key) => {
+                    if (key !== "raopSinksMap") {
+                        return;
+                    }
+
+                    const availableSinks = this.state.getStateKey("raopSinksMap");
+
+                    // We resolve the promise as soon as *any* RAOP sink appears.
+                    // This is sufficient to unblock the process, as the subsequent
+                    // validation logic (`_getValidCombinedSinks`) is responsible for
+                    // filtering the list of sinks that are actually available.
+                    if (Object.keys(availableSinks).length > 0) {
+                        this._resolveSinksReady?.(); // Resolve the promise
+                        this._cleanupWaitForSinks(); // Disconnect signal, clear state
+                    }
+                }
+            );
+        });
+
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+                this._cleanupWaitForSinks();
+                reject(new Error('Timeout: AirPlay speakers did not appear in time.'));
+            }, 5000); // 5-second timeout
+        });
+
+        return Promise.race([waitPromise, timeoutPromise]);
+    }
+
+    /**
+     * Cleans up resources used by _waitForExpectedSinks (signal handlers and promises).
+     * @private
+     */
+    _cleanupWaitForSinks() {
+        if (this._sinksReadySignalId) {
+            this.state.disconnectSignal(this.state, this._sinksReadySignalId);
+            this._sinksReadySignalId = null;
+        }
+        this._resolveSinksReady = null;
     }
 
     /**
@@ -379,6 +465,8 @@ export class AudioServerHandler {
             }
         });
 
+        console.log('the parsed sinks are - ' + JSON.stringify(parsedSinks));
+
         const currentSinks = this.state.getStateKey("raopSinksMap");
 
         const sinksChanged = JSON.stringify(getStableObject(currentSinks)) !== JSON.stringify(getStableObject(parsedSinks));
@@ -406,23 +494,13 @@ export class AudioServerHandler {
      * @private
      * @param {boolean} [setAsDefaultSink=false] - Whether to set the new combined sink as the default.
      */
-    // TODO - When we toggle on the raop module, formerly combined sinks are not getting restored. (should they?)
+    // TODO - When creating new combined sinks in pulse, the volume gets reset. PW seems to retain the volume based on name
+    // TODO - It could also just be that they start at 100% the first time they're intialized. After the two of them have been created and updated the volume state is retained.
+    // TODO - But this means that the first time the user turns on multi_speaker they could be in a rude surprise
     async _createCombinedSinkModule(setAsDefaultSink = false) {
         if(!this.state.getSettingsKey("get_boolean", "combined-speakers") || !this.state.getStateKey("modulesList").includes("module-raop-discover")) {
             return;
         }
-
-        console.log('the sinks map before starting validation - ', this.state.getStateKey("raopSinksMap"));
-        // TODO - test this in pulseaudio and confirm it works
-        // Before validating and building, explicitly refresh our sink list from the
-        // audio server. This ensures we have the most up-to-date information,
-        // resolving the race condition where a new RAOP sink might not have been
-        // detected yet.
-        await this._updateSinksList();
-
-        console.log('the sinks map after starting validation - ', this.state.getStateKey("raopSinksMap"));
-        
-        console.log('the combined sinks before validation - ', this.state.getSettingsKey("get_string", "combined-sinks"));
 
         const combinedSinkName = _(COMBINED_SINK_NAME);
 
@@ -430,9 +508,7 @@ export class AudioServerHandler {
         // If the list contains a sink name that no longer exists (e.g., a speaker
         // was turned off), the `load-module` command will fail. This function
         // ensures we only use sinks that are currently available.
-        let combinedSinks = this._getValidCombinedSinks(); // If this is triggered repeatedly too quickly, then we can lose the correct state.
-
-        console.log('the combined sinks after validation - ', combinedSinks);
+        let combinedSinks = this._getValidCombinedSinks();
 
         if (combinedSinks !== this.state.getSettingsKey("get_string", "combined-sinks")) {
             this.state.updateSettingsKey("set_string", "combined-sinks", combinedSinks);
