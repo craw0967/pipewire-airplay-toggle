@@ -8,8 +8,9 @@ import { AirPlayOutputControl } from "./outputControl.js";
  *
  * @class AirPlayMultiSpeakerControls
  * @extends PopupMenu.PopupMenuSection
+ * @property {Object.<string, AirPlayOutputControl>} _controls - A map of sink IDs to their corresponding control widgets.
  */
-export const AirPlayMultiSpeakerControls = class AirPlayMultiSpeakerControl extends PopupMenu.PopupMenuSection { 
+export const AirPlayMultiSpeakerControls = class AirPlayMultiSpeakerControls extends PopupMenu.PopupMenuSection { 
     _controls;
 
     /**
@@ -79,7 +80,8 @@ export const AirPlayMultiSpeakerControls = class AirPlayMultiSpeakerControl exte
      * Destroys all individual speaker controls within this menu section.
      *
      * @private
-     * @param {boolean} [disconnect=true] - If true, nullifies the internal controls object.
+     * @param {boolean} [disconnect=true] - If true, nullifies the internal `_controls` object.
+     *                                      If false, resets it to an empty object for reuse.
      */
     _destroyControls(disconnect = true) {
         Object.keys(this._controls).forEach((key) => {

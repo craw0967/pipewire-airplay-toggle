@@ -60,9 +60,7 @@ export const AirPlayToggleBase = GObject.registerClass(
          */
         _connectToggleSignals() {
             this.state.connectSignal(this, "clicked", () => {
-                if (this.state.getStateKey("audioServerInstalled")) {
-                    this._toggleRAOPModule();
-                }
+                this._toggleRAOPModule();
             });
 
             this.state.connectSignal(this.state, "pipewire-airplay-toggle-state-changed", (obj, key, data) => {               

@@ -2,7 +2,8 @@
  * A mixin for managing subprocesses.
  * @mixin
  * @param {class} Base - The class to extend.
- * @returns {class} - A class that extends the Base class with process handling functionality.
+ * @returns {class} A class that extends the Base class with process handling functionality.
+ * @property {Array<Gio.Subprocess>} #processHandlers - Stores managed subprocess instances.
  */
 export const ProcessMixin = (Base) => class extends Base {
     #processHandlers;

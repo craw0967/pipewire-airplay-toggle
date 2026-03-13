@@ -19,7 +19,7 @@ export const AirPlayIndicator = GObject.registerClass(
     class AirPlayIndicator extends QuickSettings.SystemIndicator {
         /**
          * @constructor
-         * @param {object} args - The constructor arguments.
+         * @param {object} args - The constructor arguments object.
          * @param {AirPlayToggleExtensionState} args.state - The extension state object.
          */
         constructor({ ...args }) {
@@ -48,17 +48,15 @@ export const AirPlayIndicator = GObject.registerClass(
          * This should be called when the extension is being disabled or unloaded.
          */
         destroy() {
-            if (this._binding) {
-                this._binding.unbind();
-                this._binding = null;
-            }
+            this._binding?.unbind();
+            this._binding = null;
 
             // This will destroy this._toggle
             this.quickSettingsItems?.forEach((item) => {
                 item.destroy();
-                item = null;
             });
 
+            this._toggle = null;
             this._indicator = null;
 
             super.destroy();

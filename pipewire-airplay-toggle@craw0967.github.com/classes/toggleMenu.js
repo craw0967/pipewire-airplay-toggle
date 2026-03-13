@@ -11,6 +11,7 @@ import { INDICATOR_TEXT, MULTI_SPEAKER_LABEL, SETTINGS_LABEL } from "../constant
  * @mixin
  * @param {class} Base - The class to extend, expected to be a QuickSettings.QuickMenuToggle.
  * @returns {class} - A class that extends the Base class with menu functionality.
+ * @property {PopupMenu.PopupImageMenuItem} _combinedSpeakersMenuItem - The menu item for toggling combined speakers.
  */
 export const AirPlayToggleMenu = (Base) => class extends Base {
     _combinedSpeakersMenuItem;
@@ -38,7 +39,6 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
      * Disconnects signals and destroys menu items.
      */
     destroy() {
-        this._combinedSpeakersMenuItem?.disconnect();
         this._combinedSpeakersMenuItem?.destroy();
         this._combinedSpeakersMenuItem = null;
 
@@ -121,7 +121,7 @@ export const AirPlayToggleMenu = (Base) => class extends Base {
     _connectToggleMenuSettings() {
         // Toggle the combined sink module, if enabled
         this.state.connectSetting("combined-speakers", () => {
-            this.state.toggleCombinedSinkModule();
+            this.state.toggleCombinedSinkModule(true);
             this._setMenuItemOrnament(this._combinedSpeakersMenuItem, this.state.getSettingsKey("get_boolean", "combined-speakers"));
         });
     }

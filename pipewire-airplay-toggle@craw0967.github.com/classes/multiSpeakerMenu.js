@@ -47,6 +47,9 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
             // This won't work if the volume output slider hasn't fully initialized
             // Catch the error and don't load the menu
             // This race condition should be prevented in the extension.js enable() function
+            // NOTE: This class relies on internal properties of the Quick Settings volume
+            // slider (_volumeOutput, _output, _deviceSection). These may change in
+            // future GNOME versions, which could break this functionality.
             try {
                 this.visible = false;
                 this._slider.child.add_child(this);
@@ -63,7 +66,6 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
                 logWarn(this.state, "Unable to detect quick settings menu dependencies. Multi-Speaker menu won't be available.");
                 logErr(this.state, err);
             }
-        }
 
         /**
          * Cleans up resources used by the menu.
@@ -77,9 +79,6 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
             this._mixerMenuVolumeSection?.destroy();
             this._mixerMenuVolumeSection = null;
 
-            // The parent St.Widget.destroy() will handle removing this button
-            // from its parent container (_slider.child).
-            // TODO - confirm this assertion is true
             super.destroy();
         }
 
@@ -103,7 +102,6 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
          * @private
          */
         _updateSeparatorVisibility() {
-            // TODO - use the _getMenuItems method to destroy menu items in other classes
             for (const item of this._slider.menu._getMenuItems()) {
                 if (!(item instanceof PopupMenu.PopupSeparatorMenuItem)) {
                     continue;

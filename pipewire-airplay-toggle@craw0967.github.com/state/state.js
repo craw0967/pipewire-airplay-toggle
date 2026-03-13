@@ -55,8 +55,8 @@ const State = GObject.registerClass({
 
     /**
      * @constructor
-     * Instantiates a new State object.
-     * @param {object} args - The arguments for the constructor.
+     * Instantiates a new State object, initializing default data
+     * and beginning asynchronous detection of the audio server.
      */
     constructor({ ...args } = {}) {
         super({ ...args });
@@ -65,16 +65,24 @@ const State = GObject.registerClass({
         this.#data = JSON.parse(JSON.stringify(STATE_DEFAULTS));
         this.#settings = null;
 
+        // Note: This is an async "fire-and-forget" call. The audio handler
+        // will be initialized in the background. This is safe because consumers
+        // of the state (like UI elements) are created afterward and only interact
+        // with the audio handler upon user action, by which time it will be ready.
         this._initializeAudioHandler();
     }
 
     /**
      * Cleans up and destroys the state object.
+     * This nullifies internal data, settings, and destroys the audio handler
+     * to prevent memory leaks.
      */
     destroy() {
         this.#data = null;
         this.#settings = null;
+        this.#extensionObject = null;
         this.#audioHandler?.destroy();
+        this.#audioHandler = null;
  
         if (super.destroy) super.destroy();
     }
@@ -140,6 +148,10 @@ const State = GObject.registerClass({
 
     /**
      * Method to update a value in the state, with support for nested objects, and notify listeners.
+     *
+     * @example
+     * // Update a top-level key
+     * this.updateStateKey('myKey', 'myValue');
      *
      * @example
      * // Update a nested key
@@ -402,8 +414,8 @@ const State = GObject.registerClass({
      * Delegates to the active audio handler.
      * @param {boolean} enabled - Whether to enable or disable the combined sink.
      */
-    async toggleCombinedSinkModule() {
-        this.#audioHandler?.toggleCombinedSinkModule();
+    async toggleCombinedSinkModule(migrateAudio = false) {
+        this.#audioHandler?.toggleCombinedSinkModule(migrateAudio);
     }
 
     /**

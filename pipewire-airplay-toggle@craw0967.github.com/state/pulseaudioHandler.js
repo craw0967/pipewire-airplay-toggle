@@ -75,7 +75,13 @@ export class PulseAudioHandler extends AudioServerHandler {
                 let name = sortedSinksArray[i].name;
                 let nextIndex = i + 1;
                 
-                if(sortedSinksArray[nextIndex] && sortedSinksArray[nextIndex].name.startsWith(name)) {
+                // Check if the next sink is a duplicate of the current sink.
+                // PulseAudio duplicates RAOP sinks by appending a dot and a number (e.g., "sink_name.2").
+                // We use a regex to ensure we only match this specific pattern and avoid false positives
+                // where one sink name is a prefix of another (e.g. "Living Room" vs "Living Room TV").
+                const duplicateRegex = new RegExp(`^${name}\\.\\d+$`);
+                if(sortedSinksArray[nextIndex] && duplicateRegex.test(sortedSinksArray[nextIndex].name)) {
+                //if(sortedSinksArray[nextIndex] && sortedSinksArray[nextIndex].name.startsWith(name)) {
                     dupSinkOwnerModules.push(sortedSinksArray[nextIndex].owner_module);
                     sortedSinksArray.splice(nextIndex, 1);
                     i--;

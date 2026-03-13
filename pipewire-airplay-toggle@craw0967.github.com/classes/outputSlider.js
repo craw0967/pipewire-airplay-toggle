@@ -11,6 +11,10 @@ import { MUTE_UNMUTE_LABEL } from "../constants/config.js";
  *
  * @class AirPlayOutputSlider
  * @extends QuickSettings.QuickSlider
+ * @property {object} _sink - The sink object this slider controls.
+ * @property {number} _volumeSignalId - The ID of the volume change signal handler.
+ * @property {number} _muteSignalId - The ID of the mute icon click signal handler.
+ * @property {number} _stateSignalId - The ID of the global state change signal handler.
  */
 export const AirPlayOutputSlider = GObject.registerClass(
     class AirPlayOutputSlider extends QuickSettings.QuickSlider {

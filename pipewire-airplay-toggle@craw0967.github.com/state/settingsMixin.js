@@ -2,7 +2,8 @@
  * A mixin for managing extension settings.
  * @mixin
  * @param {class} Base - The class to extend.
- * @returns {class} - A class that extends the Base class with settings handling functionality.
+ * @returns {class} A class that extends the Base class with settings handling functionality.
+ * @property {Array<number>} #settingsHandlers - Stores signal handler IDs for settings changes.
  */
 export const SettingsMixin = (Base) => class extends Base {
     #settingsHandlers;
@@ -21,8 +22,8 @@ export const SettingsMixin = (Base) => class extends Base {
      * Connects a callback to a setting change.
      * @param {string} key - The key of the setting.
      * @param {function} callback - The callback to execute when the setting changes.
-     * @throws {Error} Throws an error if connecting the setting event fails.
-     * @returns {number} - The ID of the handler.
+     * @throws {Error} - Throws an error if connecting the setting event fails.
+     * @returns {number} - The ID of the signal handler.
      */
     connectSetting(key, callback) {
         if (!this._Settings) {
@@ -45,10 +46,12 @@ export const SettingsMixin = (Base) => class extends Base {
      * @param {object} obj - The object to bind the setting to.
      * @param {string} property - The property of the object to bind to.
      * @param {Gio.SettingsBindFlags} flags - The flags for the binding.
-     * @throws {Error} Throws an error if binding the setting fails.
+     * @throws {Error} - Throws an error if binding the setting fails.
      * @returns {number} - The ID of the handler.
      */
-    bindSetting(key, obj, property, flags) {
+    // Not currently used and is untested. May be necessary in the future so keeping for now
+    // Unsure if bindings need disposed either
+    /* bindSetting(key, obj, property, flags) {
         if (!this._Settings) {
             throw new Error("Extension settings not defined");
         };
@@ -61,7 +64,7 @@ export const SettingsMixin = (Base) => class extends Base {
         } catch (err) {
             throw new Error(err);
         }
-    }
+    } */
 
     /**
      * Disconnects all managed settings signals.

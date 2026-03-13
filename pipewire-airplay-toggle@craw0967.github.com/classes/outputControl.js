@@ -13,6 +13,11 @@ import { AirPlayOutputSlider } from "./outputSlider.js";
  *
  * @class AirPlayOutputControl
  * @extends PopupMenu.PopupSubMenuMenuItem
+ * @property {boolean} _sinkEnabled - Whether the sink is part of the combined output.
+ * @property {PopupMenu.PopupBaseMenuItem} _menuItem - The menu item holding the slider.
+ * @property {AirPlayOutputSlider} _slider - The volume slider for the sink.
+ * @property {object} _sink - The sink object this control represents.
+ * @property {St.Icon} _icon - The icon indicating the enabled/disabled state.
  */
 export const AirPlayOutputControl = GObject.registerClass(
     class AirPlayOutputControl extends PopupMenu.PopupSubMenuMenuItem {
@@ -30,10 +35,7 @@ export const AirPlayOutputControl = GObject.registerClass(
          */
         constructor({ ...args }) {
             const { state, sink, ...addArgs } = args;
-            super(sink.description, {
-                
-                ...addArgs,
-            });
+            super(sink.description);
 
             this.state = state;
             this._sink = sink;
