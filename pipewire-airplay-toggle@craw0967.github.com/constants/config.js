@@ -72,71 +72,229 @@ export const G_ICON_MAP = {
  *
  * @type {Array<object>}
  */
+// TODO - fix icons
 export const PREFS_PAGES = [
-    {
-        title: _("Preferences"),
-        icon_name: "dialog-information-symbolic",
-        groups: [
-            {
-                hidden: false,
-                title: _("Appearance"),
-                //description: "",
-                rows: [
-                    {
-                        type: "combo",
-                        settingsKey: "indicator-icon",
-                        row: {
-                            title: _("Indicator Icon"),
-                            subtitle: _("The icon to display on the Quick Settings button and the panel indicator."),
-                            model: INDICATOR_ICON_MODEL,
-                        }
-                    },
-                    {
-                        type: "switch",
-                        settingsKey: "show-indicator",
-                        row: {
-                            title: _("Show Indicator"),
-                            subtitle: _("Enable to show a panel indicator when the RAOP Discover (AirPlay) module is enabled.")
-                        }
-                    }
-                ]
+  {
+    title: _("Appearance"),
+    icon_name: "preferences-desktop-appearance-symbolic",
+    groups: [
+      {
+        hidden: false,
+        title: _("Appearance"),
+        //description: "",
+        rows: [
+          {
+            type: "combo",
+            settingsKey: "indicator-icon",
+            row: {
+              title: _("Indicator Icon"),
+              subtitle: _(
+                "The icon to display on the Quick Settings button and the panel indicator.",
+              ),
+              model: INDICATOR_ICON_MODEL,
             },
-            {
-                hidden: function(prefSettings) {
-                    return prefSettings.get_string("audio-server") === "pipewire";
-                },
-                title: _("PulseAudio Settings"),
-                //description: "",
-                rows: [
-                    {
-                        type: "switch",
-                        settingsKey: "hide-duplicate-raop-sinks",
-                        row: {
-                            title: _("Remove Duplicate Speakers"),
-                            subtitle: _("Enable to automatically remove duplicate AirPlay speakers when PulseAudio loads them more than once. " +
-                                        "(It may also be possible to prevent duplicate speakers by using PipeWire, by disabling IPv6 networking, or by disabling IPv6 in Avahi.)")
-                        }
-                    }
-                ]
+          },
+          {
+            type: "switch",
+            settingsKey: "show-indicator",
+            row: {
+              title: _("Show Indicator"),
+              subtitle: _(
+                "Enable to show a panel indicator when the RAOP Discover (AirPlay) module is enabled.",
+              ),
             },
-            {
-                hidden: false,
-                title: _("Developer"),
-                //description: "",
-                rows: [
-                    {
-                        type: "switch",
-                        settingsKey: "show-debug",
-                        row: {
-                            title: _("Enable Debug Statements"),
-                            subtitle: _("Enable debug statements for this extension.")
-                        }
-                    }
-                ]
-            }
-        ]
-    }
-]
+          },
+        ],
+      }
+    ],
+  },
+  {
+    title: _("Behavior"),
+    icon_name: "preferences-system-symbolic",
+    groups: [
+      /* {
+        hidden: false,
+        title: _("Automatic Actions"),
+        rows: [
+          {
+            type: "switch",
+            settingsKey: "auto-enable-on-login",
+            row: {
+              title: _("Enable AirPlay Discovery on Login"),
+              subtitle: _("Automatically load the RAOP (AirPlay) discovery module when you log in."),
+            },
+          },
+          {
+            type: "switch",
+            settingsKey: "auto-combine-sinks",
+            row: {
+              title: _("Combine Sinks Automatically"),
+              subtitle: _("Automatically create a combined speaker output when multiple AirPlay devices are detected."),
+            },
+          },
+          {
+            type: "switch",
+            settingsKey: "restore-previous-sink",
+            row: {
+              title: _("Restore Default Output"),
+              subtitle: _("When AirPlay is disabled, automatically switch back to the previously used sound output device."),
+            },
+          },
+          {
+            type: "switch",
+            settingsKey: "auto-adjust-volume",
+            row: {
+              title: _("Adust Volume When Enabled"),
+              subtitle: _("Automatically adjust volume to a default level when sinks are created."),
+            },
+          },
+          //TODO create a menu for volume level adjustment values
+        ],
+      }, */
+      {
+        hidden: function (prefSettings) {
+          return prefSettings.get_string("audio-server") === "pipewire";
+        },
+        title: _("PulseAudio Settings"),
+        //description: "",
+        rows: [
+          {
+            type: "switch",
+            settingsKey: "hide-duplicate-raop-sinks",
+            row: {
+              title: _("Remove Duplicate Speakers"),
+              subtitle: _(
+                "Enable to automatically remove duplicate AirPlay speakers when PulseAudio loads them more than once. " +
+                  "(It may also be possible to prevent duplicate speakers by using PipeWire, by disabling IPv6 networking, or by disabling IPv6 in Avahi.)",
+              ),
+            },
+          },
+        ],
+      }
+    ],
+  },
+  {
+    title: _("Developer"),
+    icon_name: "general-properties-symbolic", // TODO - find appropriate icon and update
+    groups: [
+      {
+        hidden: false,
+        title: _("Debugging"),
+        //description: "",
+        rows: [
+          {
+            type: "switch",
+            settingsKey: "show-debug",
+            row: {
+              title: _("Enable Debug Statements"),
+              subtitle: _("Enable debug statements for this extension."),
+            },
+          },
+          {
+            type: "button",
+            row: {
+              title: _("Reset All Settings"),
+              subtitle: _(
+                "Restore all extension settings to their default values."
+              ),
+              button_label: _("Reset"),
+              destructive: true,
+              functionName: "resetPrefsToDefaults"
+            },
+          },
+        ],
+      },
+      {
+        hidden: false,
+        title: _("Developer Information"),
+        //description: "",
+        rows: [
+          {
+            type: "link",
+            row: {
+              title: _("Developer Guide"),
+              subtitle: _("Technical documentation and contribution guidelines"),
+              uri: "https://github.com/craw0967/pipewire-airplay-toggle",
+              button_label: _("Open"),
+            },
+          },
+        ],
+      }
+    ],
+  },
+  {
+    title: _("About"),
+    icon_name: "help-about-symbolic",
+    groups: [
+      {
+        hidden: false,
+        title: _("Help &amp; Support"),
+        //description: "",
+        rows: [
+          {
+            type: "link",
+            row: {
+              title: _("Installation Guide"),
+              subtitle: _("Detailed instructions for installing required audio dependencies"),
+              uri: "https://github.com/craw0967/pipewire-airplay-toggle/wiki/Installation-Guide",
+              button_label: _("Open"),
+            },
+          },
+          {
+            type: "link",
+            row: {
+              title: _("User Guide"),
+              subtitle: _("Learn how to use AirPlay toggling and multi-speaker features"),
+              uri: "https://github.com/craw0967/pipewire-airplay-toggle/wiki/User-Guide",
+              button_label: _("Open"),
+            },
+          },
+          {
+            type: "link",
+            row: {
+              title: _("Report an Issue"),
+              subtitle: _("Submit bug reports or suggest new features on GitHub"),
+              uri: "https://github.com/craw0967/pipewire-airplay-toggle/issues",
+              button_label: _("Report"),
+            },
+          }
+        ],
+      },
+      {
+        hidden: false,
+        title: _("Website"),
+        //description: "",
+        rows: [
+          {
+            type: "link",
+            row: {
+              title: _("Github Repository"),
+              subtitle: _("View source code, releases, and contribute"),
+              uri: "https://www.github.com/craw0967/pipewire-airplay-toggle",
+              button_label: _("Open"),
+            },
+          },
+        ],
+      },
+      {
+        hidden: false, // TODO - create a donation page and update
+        title: _("Support the Developer"),
+        //description: "",
+        rows: [
+          {
+            type: "link",
+            row: {
+              title: _("Buy Me a Coffee"),
+              subtitle: _("If you enjoy this extension, consider buying me a coffee to say thanks!"),
+              uri: "...",
+              button_label: _("Donate"),
+            },
+          },
+        ],
+      },
+    ],
+  },
+];
 
 /**
  * Maps icon values to their corresponding icon filenames.

@@ -7,7 +7,7 @@ import {ExtensionPreferences, gettext as _} from "resource:///org/gnome/Shell/Ex
 
 import { PREFS_PAGES } from "./constants/config.js";
 import { detectAudioServer } from "./functions/utils.js";
-import { logErr } from "./functions/logs.js";
+import { logErr, logWarn } from "./functions/logs.js";
 
 /**
  * A GObject class to represent an item in a combo box model.
@@ -55,12 +55,12 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
     async fillPreferencesWindow(window) {
         const pagesConfig = PREFS_PAGES;
         window._settings = this.getSettings();
+
+        this._loggingEnabled = window._settings.get_boolean("show-debug");
         
         // Detect audio server if not already set
         await this._detectAndSetAudioServer(window);
         
-        // TODO - This works and isn't very slow because the number of configured preferences is low
-        // Need to consider optimizing this so that it's not using nested loops
         for(const pageConfig of pagesConfig) {
             // Create a preferences page, with a single group
             const page = new Adw.PreferencesPage({
@@ -80,18 +80,31 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
 
                 for (const rowConfig of groupConfig.rows) {
                     switch(rowConfig.type) {
-                        case "switch":
-                            this._switchRow = this._createSwitchRow(rowConfig.row);
-                            group.add(this._switchRow);
+                        case "switch": {
+                            const switchRow = this._createSwitchRow(rowConfig.row);
+                            group.add(switchRow);
 
-                            this._connectSwitchRow(window, rowConfig);
+                            this._connectSwitchRow(window, rowConfig, switchRow);
                             break;
-                        case "combo":
-                            this._comboRow = this._createComboRow(rowConfig.row);
-                            group.add(this._comboRow);
+                        }
+                        case "combo": {
+                            const comboRow = this._createComboRow(rowConfig.row);
+                            group.add(comboRow);
                             
-                            this._connectComboRow(window, rowConfig)
+                            this._connectComboRow(window, rowConfig, comboRow);
                             break;
+                        }
+                        case "button": {
+                            const { actionRow, button } = this._createButtonRow(rowConfig.row);
+                            group.add(actionRow);
+                            this._connectButtonRow(window, button, rowConfig.row.functionName);
+                            break;
+                        }
+                        case "link": {
+                            const linkRow = this._createLinkRow(rowConfig.row);
+                            group.add(linkRow);
+                            break;
+                        }
                         default:
                             // Preference types should be explicitly set
                     }
@@ -173,17 +186,78 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
     }
 
     /**
+     * Creates a new Adw.ActionRow with a Gtk.Button suffix.
+     *
+     * @private
+     * @param {object} row - The button row configuration object.
+     * @returns {{actionRow: Adw.ActionRow, button: Gtk.Button}} An object containing the row and the button.
+     */
+    _createButtonRow(row) {
+        const actionRow = new Adw.ActionRow({
+            title: row.title ? _(row.title) : null,
+            subtitle: row.subtitle ? _(row.subtitle) : null,
+        });
+
+        const button = new Gtk.Button({
+            label: row.button_label || _("Execute"),
+            valign: Gtk.Align.CENTER,
+        });
+
+        if (row.destructive) {
+            button.add_css_class("destructive-action");
+        }
+
+        actionRow.add_suffix(button);
+        return { actionRow, button };
+    }
+
+    /**
+     * Creates a new Adw.ActionRow with a Gtk.LinkButton suffix.
+     *
+     * @private
+     * @param {object} row - The link row configuration object.
+     * @returns {Adw.ActionRow} A new action row with a link button.
+     */
+    _createLinkRow(row) {
+        const linkRow = new Adw.ActionRow({
+            title: row.title ? _(row.title) : null,
+            subtitle: row.subtitle ? _(row.subtitle) : null,
+        });
+
+        const button = new Gtk.LinkButton({
+            uri: row.uri,
+            label: row.button_label || _("Open"),
+            valign: Gtk.Align.CENTER,
+        });
+
+        linkRow.add_suffix(button);
+        return linkRow;
+    }
+
+    /**
      * Connects the switch row to the extension's settings.
      * Establishes a two-way binding between the switch's active state and the GSettings key.
      *
      * @private
      * @param {Adw.PreferencesWindow} window - The preferences window, which holds the settings object.
      * @param {object} rowConfig - The configuration object for the switch row.
+     * @param {Adw.SwitchRow} switchRow - The switch row widget to connect.
      * @param {string} rowConfig.settingsKey - The GSettings key to bind to.
      */
-    _connectSwitchRow(window, rowConfig) {
-        window._settings.bind(rowConfig.settingsKey, this._switchRow, "active",
+    _connectSwitchRow(window, rowConfig, switchRow) {
+        window._settings.bind(rowConfig.settingsKey, switchRow, "active",
             Gio.SettingsBindFlags.DEFAULT);
+    }
+
+    /**
+     * Connects a button to reset all extension settings to their default values.
+     *
+     * @private
+     * @param {Adw.PreferencesWindow} window - The preferences window, which holds the settings object.
+     * @param {Gtk.Button} button - The button widget to connect.
+     */
+    _connectButtonRow(window, button, functionName) {
+        button.connect("clicked", () => this[functionName](window));
     }
 
     /**
@@ -193,24 +267,25 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
      * @private
      * @param {Adw.PreferencesWindow} window - The preferences window, which holds the settings object.
      * @param {object} rowConfig - The configuration object for the combo box row.
+     * @param {Adw.ComboRow} comboRow - The combo row widget to connect.
      * @param {string} rowConfig.settingsKey - The GSettings key to connect to.
      */
-    _connectComboRow(window, rowConfig) {
+    _connectComboRow(window, rowConfig, comboRow) {
         // Update the setting if a new option is selected
-        this._comboRow.connect("notify::selected-item", () => {
-            const { selectedItem } = this._comboRow;
+        comboRow.connect("notify::selected-item", () => {
+            const { selectedItem } = comboRow;
             window._settings.set_string(rowConfig.settingsKey, selectedItem.value);
         });
         
         // Update the selected item in the UI if the setting changes
         window._settings.connect(`changed::${rowConfig.settingsKey}`, () => {
             const value = window._settings.get_string(rowConfig.settingsKey);
-            this._comboRow.set_selected(this._findIndexByValue(this._comboRow.model, value));
+            comboRow.set_selected(this._findIndexByValue(comboRow.model, value));
         });
 
         // Set the initial selection
         const initialValue = window._settings.get_string(rowConfig.settingsKey);
-        this._comboRow.set_selected(this._findIndexByValue(this._comboRow.model, initialValue));
+        comboRow.set_selected(this._findIndexByValue(comboRow.model, initialValue));
     }
 
     /**
@@ -222,16 +297,14 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
      */
     async _detectAndSetAudioServer(window) {
         try {
-            const loggingEnabled = window._settings.get_boolean("show-debug");
-            const audioServer = await detectAudioServer(loggingEnabled);
+            const audioServer = await detectAudioServer();
             
             if (audioServer && window._settings.get_string("audio-server") !== audioServer) {
                 window._settings.set_string("audio-server", audioServer);
             }
         } catch (err) {
-            logErr(this.state, err);
+            logErr(null, err, this._loggingEnabled);
         }
-        
     }
 
     /**
@@ -248,6 +321,34 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
                 return i;
             }
         }
+
+        logWarn(null, `[PipeWireAirPlayToggle] Value '${value}' not found in combo model. Defaulting to index 0.`, this._loggingEnabled);
         return 0; // fallback to first item
+    }
+
+    resetPrefsToDefaults(window) {
+        const dialog = new Adw.MessageDialog({
+            body: _("Are you sure you want to reset all settings to their default values? This action cannot be undone."),
+            heading: _("Reset Settings?"),
+            transient_for: window,
+        });
+
+        dialog.add_response("cancel", _("Cancel"));
+        dialog.add_response("reset", _("Reset"));
+        dialog.set_response_appearance("reset", Adw.ResponseAppearance.DESTRUCTIVE);
+        dialog.set_default_response("cancel");
+        dialog.set_close_response("cancel");
+
+        dialog.connect("response", (self, response) => {
+            if (response === "reset") {
+                const keys = window._settings.list_keys();
+                for (const key of keys) {
+                    window._settings.reset(key);
+                }
+                const toast = new Adw.Toast({ title: _("All settings have been reset to their defaults.") });
+                window.add_toast(toast);
+            }
+        });
+        dialog.present();
     }
 }
