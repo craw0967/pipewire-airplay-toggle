@@ -4,7 +4,8 @@ import { logErr } from "../functions/logs.js";
  * A mixin for managing signals.
  * @mixin
  * @param {class} Base - The class to extend.
- * @returns {class} - A class that extends the Base class with signal handling functionality.
+ * @returns {class} A class that extends the Base class with signal handling functionality.
+ * @property {Array<[GObject.Object, number]>} #signalHandlers - Stores managed signal handlers as [object, id] pairs.
  */
 export const SignalHandlerMixin = (Base) => class extends Base {
     #signalHandlers;
@@ -21,11 +22,11 @@ export const SignalHandlerMixin = (Base) => class extends Base {
 
     /**
      * Connects a callback to a signal event and adds it to the list of managed signals.
-     * @param {object} obj - The object to connect to the signal
-     * @param {string} signalName - The name of the signal to connect to the object
-     * @param {function} callback - The function to execute when the signal event is triggered
-     * @throws {Error} Throws an error if the signal connect fails
-     * @returns {number} - The ID of the handler.
+     * @param {GObject.Object} obj - The object to connect to the signal.
+     * @param {string} signalName - The name of the signal to connect to.
+     * @param {Function} callback - The function to execute when the signal event is triggered.
+     * @throws {Error} Throws an error if the signal connection fails.
+     * @returns {number} The ID of the signal handler.
      */
     connectSignal(obj, signalName, callback) {
         try {
@@ -40,8 +41,8 @@ export const SignalHandlerMixin = (Base) => class extends Base {
 
     /**
      * Disconnects a signal and removes it from the list of managed signals.
-     * @param {object} obj - The object to disconnect the signal from.
-     * @param {number} id - The ID of the handler to disconnect.
+     * @param {GObject.Object} obj - The object to disconnect the signal from.
+     * @param {number} id - The ID of the signal handler to disconnect.
      */
     disconnectSignal(obj, id) {
         try {
