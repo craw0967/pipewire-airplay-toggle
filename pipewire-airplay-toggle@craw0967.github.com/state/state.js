@@ -9,6 +9,7 @@ import { PipeWireHandler } from "./pipewireHandler.js";
 import { PulseAudioHandler } from "./pulseaudioHandler.js";
 
 import { composeMixins, getGIcon, detectAudioServer } from "../functions/utils.js";
+import { logErr } from "../functions/logs.js";
 import { STATE_DEFAULTS, G_ICON_MAP, INDICATOR_ICON_MAP, PW_MISSING_TITLE, PW_MISSING_BODY } from "../constants/config.js";
 
 /**
@@ -111,7 +112,7 @@ const State = GObject.registerClass({
             const payload = { old: oldValue, new: newValue };
             this.emit("pipewire-airplay-toggle-state-changed", key, payload);
         } catch (err) {
-            console.error(err);
+            logErr(this, err);
         }
     }
 

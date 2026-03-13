@@ -66,6 +66,7 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
                 logWarn(this.state, "Unable to detect quick settings menu dependencies. Multi-Speaker menu won't be available.");
                 logErr(this.state, err);
             }
+        }
 
         /**
          * Cleans up resources used by the menu.

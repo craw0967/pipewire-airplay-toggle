@@ -1,8 +1,8 @@
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
 
-import { logErr } from "../functions/logs.js";
-import { asyncExecCommandAndReadOutput, execCommandAndMonitor, getStableObject } from "../functions/utils.js";
+import { logErr, logWarn } from "../functions/logs.js";
+import { asyncExecCommandAndReadOutput, execCommandAndMonitor, getStableObject, parsePactlListOutput } from "../functions/utils.js";
 
 import { 
     PW_MISSING_TITLE,
@@ -38,10 +38,22 @@ export class AudioServerHandler {
      * Sets the initial state of the handler by fetching module and sink lists,
      * and starts monitoring for audio server events.
      */
-    initialize() {
-        this._updateModulesList();
-        this._updateSinksList();
+    async initialize() {
+        await this._updateModulesList();
+        await this._updateSinksList();
         this._monitorAudioServerEvents();
+
+        // If a user logs out (not lock) of their session with raop enabled, when they log back in the sinks aren't loaded even though the raop module supposedly is
+        // My guess is that the module loads before the avahi-daemon is up and running so the sinks don't get auto detected
+        // This results in the extension showing "on", but no sinks are available for display, not in the system's output menu, nor in the multi-speaker menu.
+        // We can "fix" this by toggling the module back on and off, once monitoring is enabled.
+        if (this.state.getStateKey("modulesList")?.includes("module-raop-discover") && Object.keys(this.state.getStateKey("raopSinksMap")).length === 0) {
+            logWarn(this.state,"pipewire-airplay-toggle: RAOP module loaded but no sinks found. Restarting module to fix discovery.");
+            // Toggle off
+            await this.toggleRAOPModule();
+            // Toggle back on and take any expected follow up actions - such as enabling combined sink if configured
+            await this.toggleRAOPModule();
+        }
     }
 
     /**
@@ -68,7 +80,7 @@ export class AudioServerHandler {
             
             execCommandAndMonitor(this.state, null, commandArray, (line) => {
                 this._processAudioServerEvents(line);
-            }, null, null);
+            }, null);
         } catch (err) {
             logErr(this.state, err);
         }
@@ -229,7 +241,7 @@ export class AudioServerHandler {
             );
         });
 
-        const timeoutPromise = new Promise((_, reject) => {
+        const timeoutPromise = new Promise((resolve, reject) => {
             setTimeout(() => {
                 this._cleanupWaitForSinks();
                 reject(new Error('Timeout: AirPlay speakers did not appear in time.'));
@@ -254,19 +266,26 @@ export class AudioServerHandler {
     /**
      * Toggles the combined sink module if both the combined sink setting and the raop module are enabled
      */
-    async toggleCombinedSinkModule() {
+    async toggleCombinedSinkModule(migrateAudio = false) {
         try {
             const enabled = this.state.getSettingsKey("get_boolean", "combined-speakers") && this.state.getStateKey("modulesList").includes("module-raop-discover")
             if(enabled) {
                 await this._createCombinedSinkModule(true);
             } else if(!enabled && this.state.getStateKey("currentCombineModuleId")) {
+                if(migrateAudio) {
+                    const fallbackSinkId = await this._determineFallbackSink();
+                    if (fallbackSinkId) {
+                        await this._moveActiveStreams(this.state.getStateKey("currentCombineModuleId"), fallbackSinkId, true);
+                    }
+                }
+                
                 await this._destroyCombinedSpeakersSink(this.state.getStateKey("currentCombineModuleId"));
             }
 
         } catch (err) {
             logErr(this.state, err);
         }
-    }
+    }q
 
     /**
      * Updates the list of sinks included in the combined sink.
@@ -411,9 +430,13 @@ export class AudioServerHandler {
      */
     async _updateSinksList() {
         try {
-            const output = await this._getSinksList(false, true); // TODO - would like to parse this without --format=json so that we can always get the correct sink description
+            // Stopped requesting JSON format from pactl because it came back with invalid characters
+            // And it frequently returned some RAOP sinks with a description of "(null)" when returning JSON
+            // This is an issue in both pulseaudio and pipewire-pulse
+            const output = await this._getSinksList(false, false);
 
-            const parsedOutput = output?.length > 0 ? JSON.parse(output) : null;
+            // Parse the text output into JSON format based on indentation levels
+            const parsedOutput = output?.length > 0 ? parsePactlListOutput(output) : null;
             const filteredSinks = parsedOutput ? parsedOutput.filter((sink) => {
                 return sink?.name?.includes("raop_output") || sink?.name?.includes("raop_sink")
             }) : null;
@@ -447,6 +470,7 @@ export class AudioServerHandler {
      * @param {Array<object>} sinks - An array of raw sink objects to parse.
      */
     _parseRaopSinks(sinks) {
+        // Parse RAOP sinks
         let parsedSinks = {};
         const combinedSinks = this.state.getSettingsKey("get_string", "combined-sinks")?.split(",") || [];
 
@@ -458,14 +482,13 @@ export class AudioServerHandler {
                 // The front-left and front-right channels will not vary for RAOP speakers in pulse, we should verify in pw
                 // The slider wants volume in decimal percents, like 0.5. it's easiest to work with this number in pactl via integer percents, like 50% (see man pactl), so let's use the volume_percent
                 "volume": sink.volume?.["front-left"]?.value_percent,
+                "balance": sink.balance,
                 "muted": sink.mute ? 1 : 0, // pactl list sinks output sets mute to true/false, but pactl set-mute-sink wants 1|0|toggle
                 "channels": sink.channel_map,
                 "ownerModule": sink.owner_module,
                 "combined": combinedSinks.includes(sink.name) ? true : false
             }
         });
-
-        console.log('the parsed sinks are - ' + JSON.stringify(parsedSinks));
 
         const currentSinks = this.state.getStateKey("raopSinksMap");
 
@@ -481,6 +504,7 @@ export class AudioServerHandler {
      * @returns {string|null} The sink ID, or null if not found.
      */
     _getRaopSinksMapIdBySinkName(sinkName) {
+        // Get RAOP sink map ID by sink name
         const raopSinksMap = this.state.getStateKey("raopSinksMap");
         return Object.keys(raopSinksMap).find(key => raopSinksMap[key].name === sinkName) || null;
     }
