@@ -80,6 +80,7 @@ export const AirPlayToggleBase = GObject.registerClass(
          */
         async _toggleRAOPModule() {
             try {
+                this.checked = !this.checked; // TODO - test this
                 await this.state.toggleRAOPModule();
             } catch (err) {
                 logErr(this.state, err);

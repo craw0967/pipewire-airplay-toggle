@@ -35,7 +35,7 @@ export const AirPlayOutputControl = GObject.registerClass(
          */
         constructor({ ...args }) {
             const { state, sink, ...addArgs } = args;
-            super(sink.description);
+            super(sink.description ? sink.description : sink.name);
 
             this.state = state;
             this._sink = sink;
@@ -103,6 +103,19 @@ export const AirPlayOutputControl = GObject.registerClass(
                     // Stop the event here to prevent the default activate handler from running
                     // This is much safer and less fragile then overriding PopupSubMenuMenuItem functions
                     return Clutter.EVENT_STOP;
+                }
+            );
+
+            this.state.connectSignal(
+                this.state, 
+                "pipewire-airplay-toggle-state-changed", 
+                (obj, key) => {
+                    if (key === "currentCombineModuleId" && this._sink) {
+                        if (this._sinkEnabled !== this.state.getSettingsKey("get_string", "combined-sinks")?.split(",").includes(this._sink.name)) {
+                            this._sinkEnabled = !this._sinkEnabled;
+                            this._updateControlOpenState();
+                        }
+                    }
                 }
             );
         }

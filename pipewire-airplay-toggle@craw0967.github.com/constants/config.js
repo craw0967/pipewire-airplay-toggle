@@ -10,6 +10,29 @@ const _ = function gettext(input) {
     return input;
 }
 
+const DEFAULT_VOLUME_MODEL = [
+    {
+      label: "25%",
+      volume: "25",
+      value: "option0"
+    },
+    {
+      label: "50%",
+      volume: "50",
+      value: "option1"
+    },
+    {
+      label: "75%",
+      volume: "75",
+      value: "option2"
+    },
+    {
+      label: "100%",
+      volume: "100",
+      value: "option3"
+    }
+];
+
 /**
  * Defines the available icon options for the indicator.
  * Each option includes a label, icon name, and a value.
@@ -42,7 +65,7 @@ const INDICATOR_ICON_MODEL = [
         icon: "indicator4",
         value: "option4"
     }
-]
+];
 
 /**
  * A map of internal icon keys to their corresponding SVG filenames.
@@ -63,7 +86,7 @@ export const G_ICON_MAP = {
     "indicator1": "music-note-symbolic.svg",
     "indicator2": "waves-and-screen-symbolic.svg",
     "indicator3": "speaker-wireless-symbolic.svg",
-    "indicator4": "speaker-symbolic.svg"
+    "indicator4": "speaker-symbolic.svg",
 }
 
 /**
@@ -72,11 +95,10 @@ export const G_ICON_MAP = {
  *
  * @type {Array<object>}
  */
-// TODO - fix icons
 export const PREFS_PAGES = [
   {
     title: _("Appearance"),
-    icon_name: "preferences-desktop-appearance-symbolic",
+    icon_name: "applications-graphics-symbolic",
     groups: [
       {
         hidden: false,
@@ -110,50 +132,80 @@ export const PREFS_PAGES = [
   },
   {
     title: _("Behavior"),
-    icon_name: "preferences-system-symbolic",
+    icon_name: "applications-system-symbolic",
     groups: [
-      /* {
-        hidden: false,
-        title: _("Automatic Actions"),
-        rows: [
-          {
-            type: "switch",
-            settingsKey: "auto-enable-on-login",
-            row: {
-              title: _("Enable AirPlay Discovery on Login"),
-              subtitle: _("Automatically load the RAOP (AirPlay) discovery module when you log in."),
-            },
-          },
-          {
-            type: "switch",
-            settingsKey: "auto-combine-sinks",
-            row: {
-              title: _("Combine Sinks Automatically"),
-              subtitle: _("Automatically create a combined speaker output when multiple AirPlay devices are detected."),
-            },
-          },
-          {
-            type: "switch",
-            settingsKey: "restore-previous-sink",
-            row: {
-              title: _("Restore Default Output"),
-              subtitle: _("When AirPlay is disabled, automatically switch back to the previously used sound output device."),
-            },
-          },
-          {
-            type: "switch",
-            settingsKey: "auto-adjust-volume",
-            row: {
-              title: _("Adust Volume When Enabled"),
-              subtitle: _("Automatically adjust volume to a default level when sinks are created."),
-            },
-          },
-          //TODO create a menu for volume level adjustment values
-        ],
-      }, */
       {
-        hidden: function (prefSettings) {
-          return prefSettings.get_string("audio-server") === "pipewire";
+        hidden: false,
+        title: _("Volume Adjustments"),
+        subtitle: _(
+          "Settings to help prevent "
+        ),
+        rows: [
+			 {
+        type: "switch",
+        settingsKey: "auto-enable-raop-on-login",
+        row: {
+          title: _("Enable AirPlay-Enabled Speakers Discovery on Login"),
+          subtitle: _("Automatically load the RAOP (AirPlay) discovery module when you log in."),
+        },
+      },
+      {
+        type: "switch",
+        settingsKey: "auto-enable-combined-on-login",
+        row: {
+          title: _("Automatically Restore Combined Speakers on Login"),
+          subtitle: _("Automatically combine and switch audio output to the last set of combined speakers."),
+        },
+      },
+			{
+				type: "switch",
+				settingsKey: "auto-adjust-sink-volume",
+				row: {
+					title: _("Adust Volume When Enabled"),
+					subtitle: _("Automatically adjust volume to a default level when AirPlay-enabled speakers are initialized."),
+				},
+			},
+			{
+				type: "combo",
+				settingsKey: "default-sink-volume",
+				row: {
+					title: _("Default Volume Level"),
+					subtitle: _(
+						"The volume level to set an AirPlay-enabled speaker to when it is initialized."
+					),
+          		model: DEFAULT_VOLUME_MODEL,
+				},
+				hidden: function (window) {
+					return !window._settings.get_boolean("auto-adjust-sink-volume");
+				}
+			},
+			{
+				type: "switch",
+				settingsKey: "auto-adjust-combined-volume",
+				row: {
+					title: _("Adust Combined-Sink Volume When Enabled"),
+					subtitle: _("Automatically adjust volume of the combined sink to a default level when enabled."),
+				},
+			},
+			{
+				type: "combo",
+				settingsKey: "default-combined-volume",
+				row: {
+					title: _("Default Volume Level"),
+					subtitle: _(
+						"The volume level to set an AirPlay-enabled speaker to when it is initialized."
+					),
+          		model: DEFAULT_VOLUME_MODEL,
+				},
+				hidden: function (window) {
+					return !window._settings.get_boolean("auto-adjust-combined-volume");
+				}
+			}
+        ],
+      },
+      {
+        hidden: function (window) {
+          return window._settings.get_string("audio-server") === "pipewire";
         },
         title: _("PulseAudio Settings"),
         //description: "",
@@ -175,7 +227,7 @@ export const PREFS_PAGES = [
   },
   {
     title: _("Developer"),
-    icon_name: "general-properties-symbolic", // TODO - find appropriate icon and update
+    icon_name: "applications-engineering-symbolic",
     groups: [
       {
         hidden: false,
@@ -277,7 +329,7 @@ export const PREFS_PAGES = [
         ],
       },
       {
-        hidden: false, // TODO - create a donation page and update
+        hidden: false,
         title: _("Support the Developer"),
         //description: "",
         rows: [
@@ -286,7 +338,7 @@ export const PREFS_PAGES = [
             row: {
               title: _("Buy Me a Coffee"),
               subtitle: _("If you enjoy this extension, consider buying me a coffee to say thanks!"),
-              uri: "...",
+              uri: "https://www.buymeacoffee.com/craw0967",
               button_label: _("Donate"),
             },
           },
@@ -306,6 +358,34 @@ export const INDICATOR_ICON_MAP = INDICATOR_ICON_MODEL.reduce((acc, current) => 
     acc[current.value] = current.icon;
     return acc;
 }, {});
+
+export const DEFAULT_VOLUME_MAP = DEFAULT_VOLUME_MODEL.reduce((acc, current) => {
+  acc[current.value] = current.volume;
+  return acc;
+}, {});
+
+/**
+ * The default values for the extension state.
+ *
+ * @type {object}
+ */
+export const STATE_DEFAULTS = {
+    //UI Variables
+    indicatorGIcon: null,
+
+    //PipeWire/PulseAudio Variables
+    audioServerInstalled: false,
+    raopModuleInstalled: false,
+    raopModuleId: null,
+    modulesList: [],
+
+    //Sinks Variables
+    currentCombineModuleId: null,
+    newCombineModuleId: null,
+    combinedSinks: [],
+    combinedSinkVolume: null,
+    raopSinksMap: {}
+};
 
 /**
  * The text label displayed for the indicator.
@@ -357,28 +437,6 @@ export const DEFAULT_VOLUME_MENU_HEADER = _("Sound Output");
 export const MUTE_UNMUTE_LABEL = _("Mute/Unmute");
 
 /**
- * The default values for the extension state.
- *
- * @type {object}
- */
-export const STATE_DEFAULTS = {
-    //UI Variables
-    indicatorGIcon: null,
-
-    //PipeWire/PulseAudio Variables
-    audioServerInstalled: false,
-    raopModuleInstalled: false,
-    raopModuleId: null,
-    modulesList: [],
-
-    //Sinks Variables
-    currentCombineModuleId: null,
-    newCombineModuleId: null,
-    combinedSinks: [],
-    raopSinksMap: {}
-};
-
-/**
  * Title text for the notification shown when dependencies are missing.
  *
  * @type {string}
@@ -392,3 +450,12 @@ export const PW_MISSING_TITLE = _("Supported Audio Server and/or Modules Not Fou
  */
 export const PW_MISSING_BODY =  _("Please review and install the required dependencies outlined in the 'pipewire-airplay-toggle' extension's Installation Guide - " +
                                   "https://github.com/craw0967/pipewire-airplay-toggle/wiki/Installation-Guide");
+
+export const LABEL_EXECUTE = _("Execute");
+export const LABEL_OPEN = _("Open");
+export const LABEL_CANCEL = _("Cancel");
+export const LABEL_RESET = _("Reset");
+
+export const RESET_MSG_BODY = _("Are you sure you want to reset all settings to their default values? This action cannot be undone.");
+export const RESET_MSG_HEADING = _("Reset Settings?");
+export const RESET_TOAST_TITLE = _("All settings have been reset to their defaults.");

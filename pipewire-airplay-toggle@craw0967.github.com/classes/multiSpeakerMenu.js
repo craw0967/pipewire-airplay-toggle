@@ -141,8 +141,8 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
                 }
             );
 
-            //Connect menu button visibility to "combined-speakers" setting
-            this.state.connectSetting("combined-speakers", () => {
+            //Connect menu button visibility to "enable-combined-speakers" setting
+            this.state.connectSetting("enable-combined-speakers", () => {
                 this._setMultiSpeakerMenuVisibility();
             });
 
@@ -160,12 +160,12 @@ export const AirPlayMultiSpeakerMenu = GObject.registerClass(
 
         /**
          * Sets the visibility of the multi speaker menu based on extension settings.
-         * If the combined-speakers setting is enabled and the toggle button is checked, then show the menu button
+         * If the enable-combined-speakers setting is enabled and the toggle button is checked, then show the menu button
          * Otherwise, hide the menu button
          * @private
          */
         _setMultiSpeakerMenuVisibility() {
-            if (this.state.getSettingsKey("get_boolean", "combined-speakers") === true && this.state.getStateKey("modulesList").includes("module-raop-discover")) {
+            if (this.state.getSettingsKey("get_boolean", "enable-combined-speakers") === true && this.state.getStateKey("modulesList").includes("module-raop-discover")) {
                this.visible = true;
             } else {
                this.visible = false;

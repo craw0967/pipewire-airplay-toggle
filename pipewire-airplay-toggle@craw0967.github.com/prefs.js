@@ -5,7 +5,16 @@ import GObject from "gi://GObject";
 
 import {ExtensionPreferences, gettext as _} from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
-import { PREFS_PAGES } from "./constants/config.js";
+import { 
+    PREFS_PAGES, 
+    LABEL_CANCEL, 
+    LABEL_EXECUTE, 
+    LABEL_OPEN, 
+    LABEL_RESET, 
+    RESET_MSG_BODY, 
+    RESET_MSG_HEADING, 
+    RESET_TOAST_TITLE 
+} from "./constants/config.js";
 import { detectAudioServer } from "./functions/utils.js";
 import { logErr, logWarn } from "./functions/logs.js";
 
@@ -62,54 +71,74 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         await this._detectAndSetAudioServer(window);
         
         for(const pageConfig of pagesConfig) {
-            // Create a preferences page, with a single group
-            const page = new Adw.PreferencesPage({
-                title: _(pageConfig.title),
-                icon_name: pageConfig.icon_name
-            });
-            window.add(page);
+            this._addPage(window, pageConfig);
+        }
+    }
 
-            for (const groupConfig of pageConfig.groups) {
-                const hidden = typeof groupConfig.hidden === "function" ? groupConfig.hidden(window._settings) : groupConfig.hidden;
-                if(hidden) {
-                    continue;
-                }
+    _addPage(window, pageConfig) {
+        let pageAttributes = {
+            title: _(pageConfig.title)
+        }
 
-                const group = this._createGroup(groupConfig);
-                page.add(group);
+        if(pageConfig.icon_name) {
+            pageAttributes.icon_name = pageConfig.icon_name;
+        }
 
-                for (const rowConfig of groupConfig.rows) {
-                    switch(rowConfig.type) {
-                        case "switch": {
-                            const switchRow = this._createSwitchRow(rowConfig.row);
-                            group.add(switchRow);
+        if(pageConfig.icon) {
+            pageAttributes.icon_name = pageConfig.icon;
+        }
 
-                            this._connectSwitchRow(window, rowConfig, switchRow);
-                            break;
-                        }
-                        case "combo": {
-                            const comboRow = this._createComboRow(rowConfig.row);
-                            group.add(comboRow);
-                            
-                            this._connectComboRow(window, rowConfig, comboRow);
-                            break;
-                        }
-                        case "button": {
-                            const { actionRow, button } = this._createButtonRow(rowConfig.row);
-                            group.add(actionRow);
-                            this._connectButtonRow(window, button, rowConfig.row.functionName);
-                            break;
-                        }
-                        case "link": {
-                            const linkRow = this._createLinkRow(rowConfig.row);
-                            group.add(linkRow);
-                            break;
-                        }
-                        default:
-                            // Preference types should be explicitly set
-                    }
-                    
-                }
+        // Create a preferences page, with a single group
+        const page = new Adw.PreferencesPage(pageAttributes);
+        
+        window.add(page);
+
+        for (const groupConfig of pageConfig.groups) {
+            this._addGroup(window, page, groupConfig)
+        }
+    }
+
+    _addGroup(window, page, groupConfig) {
+        const group = this._createGroup(groupConfig);
+        this._bindVisibility(window, groupConfig, group);
+        
+        page.add(group);
+
+        for (const rowConfig of groupConfig.rows) {
+            this._addRow(window, group, rowConfig);
+        }
+    }
+
+    _addRow(window, group, rowConfig) {
+        switch(rowConfig.type) {
+            case "switch": {
+                const switchRow = this._createSwitchRow(rowConfig.row);
+                group.add(switchRow);
+
+                this._connectSwitchRow(window, rowConfig, switchRow);
+                this._bindVisibility(window, rowConfig, switchRow);
+                break;
+            }
+            case "combo": {
+                const comboRow = this._createComboRow(rowConfig.row);
+                group.add(comboRow);
+                
+                this._connectComboRow(window, rowConfig, comboRow);
+                this._bindVisibility(window, rowConfig, comboRow);
+                break;
+            }
+            case "button": {
+                const { actionRow, button } = this._createButtonRow(rowConfig.row);
+                group.add(actionRow);
+                this._connectButtonRow(window, button, rowConfig.row.functionName);
+                this._bindVisibility(window, rowConfig, actionRow);
+                break;
+            }
+            case "link": {
+                const linkRow = this._createLinkRow(rowConfig.row);
+                group.add(linkRow);
+                this._bindVisibility(window, rowConfig, linkRow);
+                break;
             }
         }
     }
@@ -199,7 +228,7 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         });
 
         const button = new Gtk.Button({
-            label: row.button_label || _("Execute"),
+            label: row.button_label || _(LABEL_EXECUTE),
             valign: Gtk.Align.CENTER,
         });
 
@@ -226,7 +255,7 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
 
         const button = new Gtk.LinkButton({
             uri: row.uri,
-            label: row.button_label || _("Open"),
+            label: row.button_label || _(LABEL_OPEN),
             valign: Gtk.Align.CENTER,
         });
 
@@ -326,15 +355,39 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
         return 0; // fallback to first item
     }
 
+    /**
+     * Binds the visibility of a widget to the configuration.
+     * If the configuration has a 'hidden' property, it sets the visibility accordingly.
+     * If 'hidden' is a function, it connects to the settings 'changed' signal to update visibility dynamically.
+     *
+     * @private
+     * @param {Adw.PreferencesWindow} window - The preferences window.
+     * @param {object} config - The configuration object (group or row).
+     * @param {Gtk.Widget} widget - The widget to control.
+     */
+    _bindVisibility(window, config, widget) {
+        const check = () => {
+            const hidden = typeof config.hidden === "function" ? config.hidden(window) : config.hidden;
+            widget.visible = !hidden;
+        };
+
+        check();
+
+        if (typeof config.hidden === "function") {
+            const id = window._settings.connect("changed", check);
+            widget.connect("destroy", () => window._settings.disconnect(id));
+        }
+    }
+
     resetPrefsToDefaults(window) {
         const dialog = new Adw.MessageDialog({
-            body: _("Are you sure you want to reset all settings to their default values? This action cannot be undone."),
-            heading: _("Reset Settings?"),
+            body: _(RESET_MSG_BODY),
+            heading: _(RESET_MSG_HEADING),
             transient_for: window,
         });
 
-        dialog.add_response("cancel", _("Cancel"));
-        dialog.add_response("reset", _("Reset"));
+        dialog.add_response("cancel", _(LABEL_CANCEL));
+        dialog.add_response("reset", _(LABEL_RESET));
         dialog.set_response_appearance("reset", Adw.ResponseAppearance.DESTRUCTIVE);
         dialog.set_default_response("cancel");
         dialog.set_close_response("cancel");
@@ -345,7 +398,7 @@ export default class PipeWireAirPlayTogglePreferences extends ExtensionPreferenc
                 for (const key of keys) {
                     window._settings.reset(key);
                 }
-                const toast = new Adw.Toast({ title: _("All settings have been reset to their defaults.") });
+                const toast = new Adw.Toast({ title: _(RESET_TOAST_TITLE) });
                 window.add_toast(toast);
             }
         });

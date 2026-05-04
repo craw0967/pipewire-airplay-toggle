@@ -20,7 +20,7 @@
     <key name="show-indicator" type="b">
       <default>true</default>
     </key>
-    <key name="combined-speakers" type="b">
+    <key name="enable-combined-speakers" type="b">
       <default>false</default>
     </key>
     <key name="hide-duplicate-raop-sinks" type="b">
@@ -34,6 +34,24 @@
     </key>
     <key name="combined-sinks" type="s">
       <default>''</default>
+    </key>
+    <key name="auto-enable-raop-on-login" type="b">
+      <default>false</default>
+    </key>
+    <key name="auto-enable-combined-on-login" type="b">
+      <default>false</default>
+    </key>
+    <key name="auto-adjust-sink-volume" type="b">
+      <default>false</default>
+    </key>
+    <key name="default-sink-volume" enum="org.gnome.shell.extensions.pipewire-airplay-toggle.combo-options">
+      <default>'option0'</default>
+    </key>
+    <key name="auto-adjust-combined-volume" type="b">
+      <default>false</default>
+    </key>
+    <key name="default-combined-volume" enum="org.gnome.shell.extensions.pipewire-airplay-toggle.combo-options">
+      <default>'option0'</default>
     </key>
   </schema>
 </schemalist>

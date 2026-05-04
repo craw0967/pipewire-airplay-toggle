@@ -7,7 +7,8 @@ import { asyncExecCommandAndReadOutput, execCommandAndMonitor, getStableObject, 
 import { 
     PW_MISSING_TITLE,
     PW_MISSING_BODY,
-    COMBINED_SINK_NAME
+    COMBINED_SINK_NAME,
+    DEFAULT_VOLUME_MAP
 } from "../constants/config.js";
 
 /**
@@ -21,6 +22,7 @@ import {
 export class AudioServerHandler {
     _moduleMonitorTimeout;
     _sinkMonitorTimeout;
+    _serverMonitorTimeout;
     _createSinksTimeout;
     _resolveSinksReady = null;
     _sinksReadySignalId = null;
@@ -62,6 +64,7 @@ export class AudioServerHandler {
     destroy() {
         this._moduleMonitorTimeout = null;
         this._sinkMonitorTimeout = null;
+        this._serverMonitorTimeout = null;
         this._createSinksTimeout = null;
         this._cleanupWaitForSinks();
         this._toggleRAOPModuleInProgress = null;
@@ -109,13 +112,44 @@ export class AudioServerHandler {
                 clearTimeout(this._sinkMonitorTimeout);
             }
 
-            this._sinkMonitorTimeout =  setTimeout(() => {
+            this._sinkMonitorTimeout =  setTimeout(async () => {
                 this._updateSinksList();
                 this._sinkMonitorTimeout = null;
             }, 200);
+
+            if(this.state.getStateKey("currentCombineModuleId") && line.includes(await this._getCombinedSinkId(this.state.getStateKey("currentCombineModuleId")))) {
+                this._adjustCombinedSinksVolume();
+            }
+        }
+
+        if(line.includes("server")) {
+            if(this.state.getStateKey("currentCombineModuleId")) {
+                if (this._serverMonitorTimeout) {
+                    clearTimeout(this._serverMonitorTimeout);
+                }
+
+                this._serverMonitorTimeout =  setTimeout(async () => {
+                    const defaultSinkId = await this._getDefaultSinkId();
+                    const combinedSinkId = this.state.getStateKey("currentCombineModuleId") ? await this._getCombinedSinkId(this.state.getStateKey("currentCombineModuleId")) : null;
+
+                    if (defaultSinkId !== combinedSinkId) {
+                        this._disableCombinedSinks();
+                        this._serverMonitorTimeout = null;
+                    }
+                }, 200);
+            }
         }
     }
 
+    async _disableCombinedSinks() {
+        const raopSinksMap = this.state.getStateKey("raopSinksMap");
+
+        for (const id of Object.keys(raopSinksMap)) {
+            if (raopSinksMap[id].combined) {
+                this.updateCombinedSinks(id, 100);
+            }
+        }
+    }
     /**
      * Notifies the user if PipeWire or PulseAudio are not detected.
      * @private
@@ -139,7 +173,7 @@ export class AudioServerHandler {
             return;
         }
 
-        if(!this.state.getStateKey("audioServerInstalled")) {
+        if (!this.state.getStateKey("audioServerInstalled")) {
             this._notifyMissingDependencies();
             return;
         }
@@ -164,8 +198,9 @@ export class AudioServerHandler {
                 let loadRaopModule = modulesList.includes("module-raop-discover");
                 if (!loadRaopModule) {
                     const fallbackSinkId = await this._determineFallbackSink();
-                    if (fallbackSinkId) {
-                        await this._moveActiveStreams(this.state.getStateKey("currentCombineModuleId"), fallbackSinkId, true);
+                    const currentSinkId = this.state.getStateKey("currentCombineModuleId") ? await this._getCombinedSinkId(this.state.getStateKey("currentCombineModuleId")) : null;
+                    if (fallbackSinkId && currentSinkId) {
+                        await this._moveActiveStreams(currentSinkId, fallbackSinkId, true);
                     }
                     await this._loadUnloadModule(loadRaopModule, "module-raop-discover");
                 } else {
@@ -268,14 +303,21 @@ export class AudioServerHandler {
      */
     async toggleCombinedSinkModule(migrateAudio = false) {
         try {
-            const enabled = this.state.getSettingsKey("get_boolean", "combined-speakers") && this.state.getStateKey("modulesList").includes("module-raop-discover")
-            if(enabled) {
+            const enabled = this.state.getSettingsKey("get_boolean", "enable-combined-speakers") && this.state.getStateKey("modulesList").includes("module-raop-discover");
+            const autoCombine = this.state.getSettingsKey("get_boolean", "auto-enable-combined-on-login");
+
+            if(!autoCombine) {
+                //this._disableCombinedSinks();
+            }
+
+            if(enabled && autoCombine) {
                 await this._createCombinedSinkModule(true);
             } else if(!enabled && this.state.getStateKey("currentCombineModuleId")) {
                 if(migrateAudio) {
                     const fallbackSinkId = await this._determineFallbackSink();
-                    if (fallbackSinkId) {
-                        await this._moveActiveStreams(this.state.getStateKey("currentCombineModuleId"), fallbackSinkId, true);
+                    const currentSinkId = this.state.getStateKey("currentCombineModuleId") ? await this._getCombinedSinkId(this.state.getStateKey("currentCombineModuleId")) : null;
+                    if (fallbackSinkId && currentSinkId) {
+                        await this._moveActiveStreams(currentSinkId, fallbackSinkId, true);
                     }
                 }
                 
@@ -291,9 +333,7 @@ export class AudioServerHandler {
      * Updates the list of sinks included in the combined sink.
      * @param {string} sinkId - The ID of the sink to add or remove from the combined group.
      */
-    async updateCombinedSinks(sinkId) {
-        // TODO - Should we disable the output sliders if the user switches to a sink other than the combined sink? What is a good method of handling this scenario?
-        // TODO - Review requirements list (they're in multiple places) and ensure we've met the requirements for this first multi-speaker build
+    async updateCombinedSinks(sinkId, timeout = 2000) {
         let raopSinksMap = this.state.getStateKey("raopSinksMap");
         raopSinksMap[sinkId].combined = raopSinksMap[sinkId].combined === true ? false : true;
         this.state.updateStateKey("raopSinksMap", raopSinksMap, false);
@@ -306,17 +346,54 @@ export class AudioServerHandler {
 
         this.state.updateSettingsKey("set_string", "combined-sinks", combinedSinks?.length > 0 ? combinedSinks.join(",") : "");
 
-        if (this._createSinksTimeout) {
-            clearTimeout(this._createSinksTimeout);
+        // Set the default sink volume if it's being added as a new sink and the combined sink module is already enabled
+        if(this.state.getStateKey("raopSinksMap", sinkId, "combined")){
+            await this._setSinkDefaultVolume(
+                sinkId,
+                this.state.getSettingsKey("get_boolean", "auto-adjust-sink-volume"),
+                this.state.getSettingsKey("get_string", "default-sink-volume")
+            );
         }
 
         // Debounce the creation of the combined sink. If the user clicks multiple
         // speakers in quick succession, we don't want to rebuild the sink each time.
         // This batches the changes into a single operation.
+        if (this._createSinksTimeout) {
+            clearTimeout(this._createSinksTimeout);
+        }
+
         this._createSinksTimeout = setTimeout(async () => {
             this._createCombinedSinkModule(true);
             this._createSinksTimeout = null;
-        }, 2000);
+        }, timeout);
+    }
+
+    async _adjustCombinedSinksVolume() {
+        const currentCombinedSinkModuleId = this.state.getStateKey("currentCombineModuleId");
+
+        if(!currentCombinedSinkModuleId) {
+            return;
+        }
+
+        const currentCombinedSinkVolume = this.state.getStateKey("combinedSinkVolume");
+        let newCombinedSinkVolume = await this._getSinkVolume(await this._getCombinedSinkId(currentCombinedSinkModuleId));
+            newCombinedSinkVolume = newCombinedSinkVolume.length > 0 ? newCombinedSinkVolume[0]?.split("front-left:") : null;
+            newCombinedSinkVolume = newCombinedSinkVolume.length > 0 ? newCombinedSinkVolume[1].split("/") : null;
+            newCombinedSinkVolume = newCombinedSinkVolume.length > 0 ? parseFloat(newCombinedSinkVolume[1].trim().replace("%", "")) : null;
+
+        const combinedSinks = this.state.getSettingsKey("get_string", "combined-sinks")?.split(",") || [];
+        if(currentCombinedSinkVolume !== newCombinedSinkVolume && combinedSinks?.length > 0) {
+            this.state.updateStateKey("combinedSinkVolume", newCombinedSinkVolume);
+            const adjustAmount = newCombinedSinkVolume - currentCombinedSinkVolume;
+            
+            for(const sinkName of combinedSinks) {
+                const sinkId = this._getRaopSinksMapIdBySinkName(sinkName);
+                if(sinkId) {
+                    // Note: if the extension is loaded on a system, and you open a test session in Wayland, this will adjust the volume twice
+                    this._adjustSinkVolume(sinkId, adjustAmount);
+                }
+            }
+        }
     }
 
     /**
@@ -328,9 +405,6 @@ export class AudioServerHandler {
         const volumePercent = `${Math.round(volume).toString()}%`;
         const muted = this.state.getStateKey("raopSinksMap", sinkId, "muted");
 
-        if(muted) {
-            this.state.updateStateKey(["raopSinksMap", sinkId, "muted"], 0);
-        }
         this.state.updateStateKey(["raopSinksMap", sinkId, "volume"], volumePercent);
         
         try {
@@ -403,7 +477,18 @@ export class AudioServerHandler {
 
                 if (filtered?.length > 0 && filtered[0]) {
                     const newCombinedModuledId = filtered[0].split("\t")[0];
-                    this.state.updateStateKey("currentCombineModuleId", newCombinedModuledId, newCombinedModuledId !== this.state.getStateKey("currentCombineModuleId"));
+                    const combinedModuleIdChanged = newCombinedModuledId !== this.state.getStateKey("currentCombineModuleId");
+                    this.state.updateStateKey("currentCombineModuleId", newCombinedModuledId, combinedModuleIdChanged);
+
+                    if (this.state.getStateKey("currentCombineModuleId") && (this.state.getStateKey("combinedSinkVolume") === null || combinedModuleIdChanged)) {
+                        let combinedSinkVolume = await this._getSinkVolume(await this._getCombinedSinkId(this.state.getStateKey("currentCombineModuleId")));
+                            combinedSinkVolume = combinedSinkVolume.length > 0 ? combinedSinkVolume[0]?.split("front-left:") : null;
+                            combinedSinkVolume = combinedSinkVolume.length > 0 ? combinedSinkVolume[1].split("/") : null;
+                            combinedSinkVolume = combinedSinkVolume.length > 0 ? parseFloat(combinedSinkVolume[1].trim().replace("%", "")) : null;
+
+                        this.state.updateStateKey("combinedSinkVolume", combinedSinkVolume);
+                    }
+                    
                 } else {
                     this.state.updateStateKey("currentCombineModuleId", null, this.state.getStateKey("currentCombineModuleId") !== null);
                 }
@@ -518,11 +603,8 @@ export class AudioServerHandler {
      * @private
      * @param {boolean} [setAsDefaultSink=false] - Whether to set the new combined sink as the default.
      */
-    // TODO - When creating new combined sinks in pulse, the volume gets reset. PW seems to retain the volume based on name
-    // TODO - It could also just be that they start at 100% the first time they're intialized. After the two of them have been created and updated the volume state is retained.
-    // TODO - But this means that the first time the user turns on multi_speaker they could be in a rude surprise
     async _createCombinedSinkModule(setAsDefaultSink = false) {
-        if(!this.state.getSettingsKey("get_boolean", "combined-speakers") || !this.state.getStateKey("modulesList").includes("module-raop-discover")) {
+        if(!this.state.getSettingsKey("get_boolean", "enable-combined-speakers") || !this.state.getStateKey("modulesList").includes("module-raop-discover")) {
             return;
         }
 
@@ -547,9 +629,17 @@ export class AudioServerHandler {
             
             // Otherwise, if there are no sinks to combine, destroy the combined sink module so that the audio can fall back to the system default sink
             } else if (this.state.getStateKey("currentCombineModuleId")) {
-                const fallbackSinkId = await this._determineFallbackSink();
-                if(fallbackSinkId) {
-                    await this._moveActiveStreams(this.state.getStateKey("currentCombineModuleId"), fallbackSinkId, true);
+                // Because this method gets called if user switches away from the combined speaker sink
+                // First check if the default sink has been changed.
+                const defaultSinkId = await this._getDefaultSinkId();
+                const currentSinkId = this.state.getStateKey("currentCombineModuleId") ? await this._getCombinedSinkId(this.state.getStateKey("currentCombineModuleId")) : null;
+                const defaultSinkChanged = defaultSinkId !== currentSinkId;
+
+                // If the default sink has already been changed, use it. If not, use the fallback sink.
+                const fallbackSinkId = !defaultSinkChanged ? await this._determineFallbackSink() : defaultSinkId;
+
+                if(fallbackSinkId && currentSinkId) {
+                    await this._moveActiveStreams(currentSinkId, fallbackSinkId, true);
                 }
                 await this._destroyCombinedSpeakersSink(this.state.getStateKey("currentCombineModuleId"));
             }
@@ -561,8 +651,13 @@ export class AudioServerHandler {
                 if (newSinkId) {
                     const oldModuleId = this.state.getStateKey("currentCombineModuleId");
                     if (!oldModuleId) {
+                        this.state.updateStateKey("currentCombineModuleId", newModuleId);
                         await this._initializeCombinedSink(newModuleId, newSinkId, setAsDefaultSink);
                     } else {
+                        // Temporarily store the new module ID. The old one will be destroyed,
+                        // which will trigger an event. The destruction handler will then
+                        // promote the new ID to be the current one.
+                        this.state.updateStateKey("newCombineModuleId", newModuleId);
                         await this._rebuildCombinedSink(oldModuleId, newModuleId, newSinkId, setAsDefaultSink);
                     }
                 }
@@ -584,10 +679,28 @@ export class AudioServerHandler {
         const defaultSinkId = await this._getDefaultSinkId();
         
         if(defaultSinkId && newSinkId) {
+            // Set new combined sink to default volume if setting enabled
+            await this._setSinkDefaultVolume(
+                newSinkId, 
+                this.state.getSettingsKey("get_boolean", "auto-adjust-combined-volume"), 
+                this.state.getSettingsKey("get_string", "default-combined-volume")
+            );
+
+            // Set default volume of combined sinks if setting enabed
+            const combinedSinks = this.state.getSettingsKey("get_string", "combined-sinks")?.split(",") || [];
+            for (const sinkName of combinedSinks) {
+                const sinkId = this._getRaopSinksMapIdBySinkName(sinkName);
+                if (sinkId) {
+                    this._setSinkDefaultVolume(
+                        sinkId,
+                        this.state.getSettingsKey("get_boolean", "auto-adjust-sink-volume"),
+                        this.state.getSettingsKey("get_string", "default-sink-volume")
+                    )
+                }
+            }
+
             await this._moveActiveStreams(defaultSinkId, newSinkId, setAsDefaultSink);
         }
-    
-        this.state.updateStateKey("currentCombineModuleId", newModuleId);
     }
     
     /**
@@ -603,14 +716,68 @@ export class AudioServerHandler {
         // "Softly" migrate streams to the new sink
         const oldSinkId = await this._getCombinedSinkId(oldModuleId);
         if (oldSinkId && newSinkId) {
+            let defaultVolume = await this._getSinkVolume(oldSinkId);
+                defaultVolume = defaultVolume.length > 0 ? defaultVolume[0]?.split("front-left:") : null;
+                defaultVolume = defaultVolume.length > 0 ? defaultVolume[1].split("/") : null;
+                defaultVolume = defaultVolume.length > 0 ? defaultVolume[1].trim() : null;
+            
+            await this._setSinkDefaultVolume(
+                newSinkId, 
+                true, 
+                defaultVolume,
+                true
+            );
+
             await this._moveActiveStreams(oldSinkId, newSinkId, setAsDefaultSink);
         }
     
-        // Temporarily store the new module ID. The old one will be destroyed,
-        // which will trigger an event. The destruction handler will then
-        // promote the new ID to be the current one.
-        this.state.updateStateKey("newcurrentCombineModuleId", newModuleId);
         await this._destroyCombinedSpeakersSink(oldModuleId);
+    }
+
+    async _setSinkDefaultVolume(sinkId, autoAdjust, defaultVolume, override = false) {
+        if(autoAdjust) {
+            try {
+                let currentVolume = await this._getSinkVolume(sinkId);
+                    currentVolume = currentVolume.length > 0 ? currentVolume[0]?.split("front-left:") : null;
+                    currentVolume = currentVolume.length > 0 ? currentVolume[1].split("/") : null;
+                    currentVolume = currentVolume.length > 0 ? parseFloat(currentVolume[1].trim().replace("%", "")) : null;
+
+                defaultVolume = defaultVolume?.length > 0 && DEFAULT_VOLUME_MAP[defaultVolume] ? 
+                                DEFAULT_VOLUME_MAP[defaultVolume] : 
+                                defaultVolume;
+
+                defaultVolume = parseFloat(
+                    defaultVolume && typeof defaultVolume === "string" ? 
+                    defaultVolume.replace("%", "") : 
+                    defaultVolume
+                );
+
+                if (defaultVolume && currentVolume && ((defaultVolume < currentVolume) || (override && currentVolume !== defaultVolume))) {
+                    await this.updateSinkVolume(sinkId, defaultVolume);
+                }
+            } catch (err) {
+                logErr(this.state, err);
+            }
+        }
+    }
+
+    async _adjustSinkVolume(sinkId, adjustAmount) {
+        let currentVolume = await this._getSinkVolume(sinkId);
+            currentVolume = currentVolume.length > 0 ? currentVolume[0]?.split("front-left:") : null;
+            currentVolume = currentVolume.length > 0 ? currentVolume[1].split("/") : null;
+            currentVolume = currentVolume.length > 0 ? parseFloat(currentVolume[1].trim().replace("%", "")) : null;
+
+        let adjustedVolume = currentVolume + adjustAmount;
+        
+        if(adjustedVolume > 100) {
+            adjustedVolume = 100;
+        }
+        
+        if(adjustedVolume < 0) {
+            adjustedVolume = 0;
+        }
+        
+        this.updateSinkVolume(sinkId, adjustedVolume);
     }
 
     /**
@@ -625,14 +792,14 @@ export class AudioServerHandler {
             if (this.state.getStateKey("currentCombineModuleId") === moduleId) {
                 this.state.updateStateKey("currentCombineModuleId", null);
 
-                if (this.state.getStateKey("newcurrentCombineModuleId") !== null) {
-                    this.state.updateStateKey("currentCombineModuleId", this.state.getStateKey("newcurrentCombineModuleId"));
-                    this.state.updateStateKey("newcurrentCombineModuleId", null);
+                if (this.state.getStateKey("newCombineModuleId") !== null) {
+                    this.state.updateStateKey("currentCombineModuleId", this.state.getStateKey("newCombineModuleId"));
+                    this.state.updateStateKey("newCombineModuleId", null);
                 }
             }
 
-            if (this.state.getStateKey("newcurrentCombineModuleId") === moduleId) {
-                this.state.updateStateKey("newcurrentCombineModuleId", null);
+            if (this.state.getStateKey("newCombineModuleId") === moduleId) {
+                this.state.updateStateKey("newCombineModuleId", null);
             }
 
         } catch (err) {
@@ -648,7 +815,11 @@ export class AudioServerHandler {
      * @param {string} newSinkId - The ID of the destination sink.
      * @param {boolean} [setAsDefaultSink=false] - Whether to set the new combined sink as the default.
      */
+    // TODO - there seems to be a bug where the sink-input gets "stuck"
     async _moveActiveStreams(oldSinkId, newSinkId, setAsDefaultSink = false) {
+        const currentCombinedSinkId = this.state.getStateKey("currentCombineModuleId") ? await this._getCombinedSinkId(this.state.getStateKey("currentCombineModuleId")) : null;
+        const newCombinedSinkId = this.state.getStateKey("newCombineModuleId") ? await this._getCombinedSinkId(this.state.getStateKey("newCombineModuleId")) : null;
+
         try {
             // pactl list short sink-inputs
             // Output format:
@@ -659,15 +830,31 @@ export class AudioServerHandler {
                 const parts = inputLine.split('\t');
                 if (parts.length >= 3) {
                     const inputId = parts[0];
-                    const currentSinkId = parts[2];
+                    const currentSinkId = parts[1];
+
+                    // TODO - sometimes when migrating, this doesn't evaluate to true??
+                    console.log('the currentSinkId = ' + currentSinkId + ' oldSinkId = ' + oldSinkId);
 
                     if (currentSinkId === oldSinkId) {
+                        // TODO - do we want to update the sink input volume here?
+                        // It seems like because both speakers and combined sinks adjust volume, volume levels are too low on the combined sink
+                        console.log('migrating the sink inputs');
+                        console.log('newSinkId: ' + newSinkId + ' currentCombinedSinkId: ' + currentCombinedSinkId + ' newCombinedSinkId: ' + newCombinedSinkId);
+                        if(newSinkId === currentCombinedSinkId || newSinkId === newCombinedSinkId) {
+                            console.log('setting sink input volume to 150% - ' + inputId)
+                            this._setSinkInputVolume(inputId, "150%");
+                        } else {
+                            console.log('setting sink input volume to 100% - ' + inputId)
+                            this._setSinkInputVolume(inputId, "100%");
+                        }
+                        // TODO - Timing issue because this operation takes time? it might not finishing moving them all before we set the default sink
                         this._moveSinkInput(inputId, newSinkId);
                     }
                 }
             }
 
             if (setAsDefaultSink && newSinkId) {
+                console.log('setting the default sink');
                 await this._setDefaultSink(newSinkId);
             }
 
@@ -962,6 +1149,21 @@ export class AudioServerHandler {
             "set-sink-mute", 
             sinkId, 
             mute === null ? "toggle" : mute.toString()
+        ];
+
+        try {
+            return await asyncExecCommandAndReadOutput(commandArray);
+        } catch (err) {
+            throw new Error(err);
+        }
+    }
+
+    async _setSinkInputVolume(inputId, volumePercent) {
+        const commandArray = [
+            "pactl", 
+            "set-sink-input-volume", 
+            inputId, 
+            volumePercent
         ];
 
         try {
